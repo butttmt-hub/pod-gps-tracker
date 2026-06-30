@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>POD GPS Tracker</title>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4&libraries=places&callback=initMap" async defer></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      color: white;
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .header-icon { font-size: 22px; }
+    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
+    .header p  { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+    }
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #f5f5f5;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      flex: 1;
+      min-width: 100px;
+      justify-content: center;
+    }
+    .status-chip .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #9e9e9e;
+      flex-shrink: 0;
+    }
+    .status-chip.good .dot { background: #43a047; animation: pulse 1.5s infinite; }
+    .status-chip.warn .dot { background: #fb8c00; }
+    .status-chip.bad  .dot { background: #e53935; }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+
+    /* ── Destination Search ── */
+    .dest-section {
+      background: white;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .dest-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #e53935;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #destInput {
+      flex: 1;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      outline: none;
+      color: #1a1a2e;
+      transition: border-color 0.2s;
+    }
+    #destInput:focus { border-color: #1565c0; }
+    .btn-clear-dest {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: #999;
+      padding: 0 2px;
+      display: none;
+    }
+
+    /* ── Map ── */
+    #map {
+      flex: 1;
+      min-height: 300px;
+      background: #cfd8dc;
+      position: relative;
+    }
+    .map-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #607d8b;
+      gap: 8px;
+      font-size: 13px;
+      text-align: center;
+      padding: 20px;
+    }
+    .map-placeholder .icon { font-size: 40px; }
+
+    /* ── ETA Banner ── */
+    .eta-banner {
+      display: none;
+      background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+      border-top: 3px solid #43a047;
+      padding: 10px 14px;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+    }
+    .eta-banner.show { display: flex; }
+    .eta-icon { font-size: 26px; flex-shrink: 0; }
+    .eta-detail { flex: 1; }
+    .eta-time {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1b5e20;
+      line-height: 1.1;
+    }
+    .eta-sub  { font-size: 11px; color: #388e3c; margin-top: 2px; }
+    .eta-dist {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .eta-dist-val  { font-size: 16px; font-weight: 700; color: #2e7d32; }
+    .eta-dist-unit { font-size: 10px; color: #66bb6a; }
+
+    /* ── Info Cards ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+      background: #f0f2f5;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card.full { grid-column: 1 / -1; }
+    .card-label {
+      font-size: 10px;
+      color: #888;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .card-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a2e;
+      word-break: break-all;
+    }
+    .card-value.small { font-size: 12px; }
+    .accuracy-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+    .acc-good { background: #e8f5e9; color: #2e7d32; }
+    .acc-warn { background: #fff3e0; color: #e65100; }
+    .acc-bad  { background: #ffebee; color: #c62828; }
+
+    /* ── POD Button ── */
+    .action-area {
+      padding: 12px;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+    }
+    .btn-pod {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #1565c0, #0d47a1);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(21,101,192,0.4);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .btn-pod:active {
+      transform: scale(0.97);
+      box-shadow: 0 2px 6px rgba(21,101,192,0.3);
+    }
+    .btn-pod:disabled {
+      background: #b0bec5;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* ── Log ── */
+    .log-section {
+      margin: 0 12px 16px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .log-title { font-size: 12px; font-weight: 700; color: #555; }
+    .btn-clear {
+      font-size: 11px;
+      color: #e53935;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .log-list { max-height: 180px; overflow-y: auto; }
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #f5f5f5;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .log-num {
+      background: #1565c0;
+      color: white;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .log-detail { flex: 1; }
+    .log-coords { font-size: 11px; font-weight: 600; color: #333; }
+    .log-meta   { font-size: 10px; color: #888; margin-top: 2px; }
+    .log-empty  { text-align: center; padding: 20px; color: #bbb; font-size: 12px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%; transform: translateX(-50%);
+      background: #1b5e20;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Override Google Autocomplete dropdown z-index */
+    .pac-container { z-index: 9999 !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">📦</div>
+    <div>
+      <h1>POD GPS Tracker</h1>
+      <p>Proof of Delivery · Location Accuracy Test</p>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-chip" id="chipGPS">
+      <div class="dot"></div>
+      <span>GPS: รอสัญญาณ</span>
+    </div>
+    <div class="status-chip" id="chipMap">
+      <div class="dot"></div>
+      <span>แผนที่: โหลด...</span>
+    </div>
+  </div>
+
+  <!-- File:// Warning -->
+  <div id="fileWarning" style="display:none; background:#fff3cd; border-left:4px solid #ffc107; padding:8px 12px; font-size:11px; color:#856404;">
+    <b>⚠️ โหมด Local File</b> — Autocomplete ไม่ทำงานบน file:// กรุณา <b>พิมพ์ชื่อสถานที่แล้วกด Enter</b> แทน<br>
+    <span style="opacity:0.8">หรืออัปโหลดไฟล์ขึ้น Web Server เพื่อใช้ Autocomplete เต็มรูปแบบ</span>
+  </div>
+
+  <!-- Destination Search -->
+  <div class="dest-section">
+    <div class="dest-label">🏪 ปลายทาง</div>
+    <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
+    <button class="btn-clear-dest" id="btnClearDest" onclick="clearDestination()">✕</button>
+  </div>
+
+  <!-- Map -->
+  <div id="map">
+    <div class="map-placeholder" id="mapPlaceholder">
+      <div class="icon">🗺️</div>
+      <div>กำลังโหลดแผนที่...<br><small>หรือรอ GPS ล็อคสัญญาณ</small></div>
+    </div>
+  </div>
+
+  <!-- ETA Banner -->
+  <div class="eta-banner" id="etaBanner">
+    <div class="eta-icon">🚗</div>
+    <div class="eta-detail">
+      <div class="eta-time" id="etaTime">—</div>
+      <div class="eta-sub" id="etaSub">เวลาโดยประมาณ</div>
+    </div>
+    <div class="eta-dist">
+      <div class="eta-dist-val" id="etaDist">—</div>
+      <div class="eta-dist-unit">ระยะทาง</div>
+    </div>
+  </div>
+
+  <!-- Info Cards -->
+  <div class="info-grid">
+    <div class="card">
+      <div class="card-label">📍 Latitude</div>
+      <div class="card-value" id="valLat">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">📍 Longitude</div>
+      <div class="card-value" id="valLng">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">🎯 Accuracy</div>
+      <div class="card-value" id="valAcc">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">🕐 เวลา</div>
+      <div class="card-value small" id="valTime">—</div>
+    </div>
+    <div class="card full">
+      <div class="card-label">📡 สถานะ</div>
+      <div class="card-value small" id="valStatus">กำลังขอสิทธิ์ GPS...</div>
+    </div>
+  </div>
+
+  <!-- POD Button -->
+  <div class="action-area">
+    <button class="btn-pod" id="btnPOD" disabled onclick="checkIn()">
+      ✅ บันทึก POD (Check-in)
+    </button>
+  </div>
+
+  <!-- Log -->
+  <div class="log-section">
+    <div class="log-header">
+      <span class="log-title">📋 ประวัติการ Check-in</span>
+      <button class="btn-clear" onclick="clearLog()">ล้างทั้งหมด</button>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="log-empty">ยังไม่มีการ Check-in</div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ─── State ───────────────────────────────────────────
+    let map = null;
+    let myMarker = null;
+    let accuracyCircle = null;
+    let destMarker = null;
+    let directionsRenderer = null;
+    let directionsService = null;
+    let currentPos = null;
+    let destPlace = null;
+    let checkInCount = 0;
+    let logs = [];
+    let mapReady = false;
+
+    // ─── Google Maps Callback ─────────────────────────────
+    function initMap() {
+      // บันทึก reference ก่อน Maps API จะล้าง DOM
+      const placeholder = document.getElementById('mapPlaceholder');
+
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 14,
+        center: { lat: 13.7563, lng: 100.5018 },
+        mapTypeId: 'roadmap',
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'greedy'
+      });
+
+      // ใช้ reference ที่บันทึกไว้ (ไม่ค้นหาใหม่หลัง Maps ล้าง DOM)
+      if (placeholder) placeholder.style.display = 'none';
+      mapReady = true;
+      setChip('chipMap', 'good', 'แผนที่: พร้อม');
+
+      // Directions
+      directionsService  = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: true,
+        polylineOptions: { strokeColor: '#1565c0', strokeWeight: 5, strokeOpacity: 0.8 }
+      });
+
+      // Places Autocomplete — ต้องการ HTTP/HTTPS เท่านั้น
+      if (window.location.protocol === 'file:') {
+        // โหมด file:// → ใช้ manual input แทน Autocomplete
+        document.getElementById('destInput').placeholder = 'พิมพ์ชื่อสถานที่ แล้วกด Enter';
+        document.getElementById('destInput').addEventListener('keydown', e => {
+          if (e.key === 'Enter') geocodeAddress(e.target.value);
+        });
+        document.getElementById('fileWarning').style.display = 'block';
+      } else {
+        // โหมด HTTP → ใช้ Places Autocomplete ปกติ
+        const input = document.getElementById('destInput');
+        const autocomplete = new google.maps.places.Autocomplete(input, {
+          fields: ['geometry', 'name', 'formatted_address'],
+          componentRestrictions: { country: 'th' }
+        });
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (!place.geometry) return;
+          destPlace = place;
+          document.getElementById('btnClearDest').style.display = 'block';
+          setDestinationMarker(place.geometry.location);
+          if (currentPos) calcRoute();
+        });
+      }
+
+      if (currentPos) updateMap(currentPos);
+    }
+
+    // ─── Geocode สำหรับโหมด file:// ──────────────────────
+    function geocodeAddress(address) {
+      if (!address.trim()) return;
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: address + ' ประเทศไทย' }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const place = {
+            geometry: { location: results[0].geometry.location },
+            name: address,
+            formatted_address: results[0].formatted_address
+          };
+          destPlace = place;
+          document.getElementById('btnClearDest').style.display = 'block';
+          setDestinationMarker(place.geometry.location);
+          if (currentPos) calcRoute();
+        } else {
+          showToast('❌ ไม่พบสถานที่ ลองพิมพ์ใหม่');
+        }
+      });
+    }
+
+    // ─── GPS Tracking ─────────────────────────────────────
+    function startGPS() {
+      if (!navigator.geolocation) {
+        setStatus('❌ Browser นี้ไม่รองรับ GPS', 'bad');
+        return;
+      }
+      setStatus('⏳ กำลังขอสิทธิ์ GPS...', '');
+      navigator.geolocation.watchPosition(onGPSSuccess, onGPSError, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      });
+    }
+
+    function onGPSSuccess(pos) {
+      currentPos = pos;
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const now = new Date();
+
+      document.getElementById('valLat').textContent  = lat.toFixed(7);
+      document.getElementById('valLng').textContent  = lng.toFixed(7);
+      document.getElementById('valTime').textContent = now.toLocaleTimeString('th-TH');
+
+      const accClass = accuracy <= 20 ? 'acc-good' : accuracy <= 50 ? 'acc-warn' : 'acc-bad';
+      const accLabel = accuracy <= 20 ? '🟢 ดีมาก' : accuracy <= 50 ? '🟡 พอใช้' : '🔴 ต่ำ';
+      document.getElementById('valAcc').innerHTML =
+        `${Math.round(accuracy)} เมตร <span class="accuracy-badge ${accClass}">${accLabel}</span>`;
+
+      const chipClass = accuracy <= 20 ? 'good' : accuracy <= 50 ? 'warn' : 'bad';
+      setChip('chipGPS', chipClass, `GPS: ±${Math.round(accuracy)}m`);
+      setStatus(`✅ GPS ล็อคแล้ว — ความแม่นยำ ±${Math.round(accuracy)} เมตร`, 'good');
+      document.getElementById('btnPOD').disabled = false;
+
+      if (mapReady) {
+        updateMap(pos);
+        if (destPlace) calcRoute(); // อัปเดต ETA เมื่อตำแหน่งเปลี่ยน
+      }
+    }
+
+    function onGPSError(err) {
+      const msg = {
+        1: '🚫 ไม่ได้รับอนุญาต GPS — กรุณาอนุญาตใน Settings',
+        2: '📡 ไม่พบสัญญาณ GPS',
+        3: '⏱️ GPS Timeout — ลองใหม่อีกครั้ง'
+      }[err.code] || '❌ GPS Error';
+      setStatus(msg, 'bad');
+      setChip('chipGPS', 'bad', 'GPS: Error');
+    }
+
+    // ─── Map: My Position ─────────────────────────────────
+    function updateMap(pos) {
+      const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const acc = pos.coords.accuracy;
+
+      if (!myMarker) {
+        myMarker = new google.maps.Marker({
+          position: latlng, map,
+          title: 'ตำแหน่งของฉัน',
+          zIndex: 10,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#1565c0', fillOpacity: 1,
+            strokeColor: 'white', strokeWeight: 3
+          }
+        });
+        accuracyCircle = new google.maps.Circle({
+          map, center: latlng, radius: acc,
+          fillColor: '#1565c0', fillOpacity: 0.12,
+          strokeColor: '#1565c0', strokeOpacity: 0.4, strokeWeight: 1
+        });
+      } else {
+        myMarker.setPosition(latlng);
+        accuracyCircle.setCenter(latlng);
+        accuracyCircle.setRadius(acc);
+      }
+
+      if (!destPlace) map.panTo(latlng);
+    }
+
+    // ─── Map: Destination Marker ──────────────────────────
+    function setDestinationMarker(location) {
+      if (destMarker) destMarker.setMap(null);
+      destMarker = new google.maps.Marker({
+        position: location, map,
+        title: 'ปลายทาง',
+        zIndex: 20,
+        animation: google.maps.Animation.DROP,
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        }
+      });
+      map.panTo(location);
+    }
+
+    // ─── Directions + ETA ─────────────────────────────────
+    function calcRoute() {
+      if (!currentPos || !destPlace) return;
+
+      const origin = {
+        lat: currentPos.coords.latitude,
+        lng: currentPos.coords.longitude
+      };
+      const destination = destPlace.geometry.location;
+
+      directionsService.route({
+        origin,
+        destination,
+        travelMode: google.maps.TravelMode.DRIVING,
+        region: 'TH'
+      }, (result, status) => {
+        if (status === 'OK') {
+          directionsRenderer.setDirections(result);
+
+          const leg = result.routes[0].legs[0];
+          document.getElementById('etaTime').textContent  = leg.duration.text;
+          document.getElementById('etaDist').textContent  = leg.distance.text;
+          document.getElementById('etaSub').textContent   =
+            `ถึง: ${destPlace.name || destPlace.formatted_address}`;
+          document.getElementById('etaBanner').classList.add('show');
+
+          // Fit map to show full route
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend(origin);
+          bounds.extend(destination);
+          map.fitBounds(bounds, { top: 40, bottom: 40, left: 20, right: 20 });
+        } else {
+          document.getElementById('etaTime').textContent = 'คำนวณไม่ได้';
+          document.getElementById('etaDist').textContent = '—';
+          document.getElementById('etaBanner').classList.add('show');
+        }
+      });
+    }
+
+    // ─── Clear Destination ────────────────────────────────
+    function clearDestination() {
+      destPlace = null;
+      document.getElementById('destInput').value = '';
+      document.getElementById('btnClearDest').style.display = 'none';
+      document.getElementById('etaBanner').classList.remove('show');
+      if (destMarker) { destMarker.setMap(null); destMarker = null; }
+      if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
+      if (currentPos) map.panTo({
+        lat: currentPos.coords.latitude,
+        lng: currentPos.coords.longitude
+      });
+    }
+
+    // ─── Check-in / POD ───────────────────────────────────
+    function checkIn() {
+      if (!currentPos) return;
+      checkInCount++;
+      const { latitude: lat, longitude: lng, accuracy } = currentPos.coords;
+      const now = new Date();
+
+      const entry = {
+        num: checkInCount,
+        lat: lat.toFixed(7),
+        lng: lng.toFixed(7),
+        accuracy: Math.round(accuracy),
+        time: now.toLocaleTimeString('th-TH'),
+        date: now.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric' }),
+        dest: destPlace ? (destPlace.name || destPlace.formatted_address) : null,
+        eta:  destPlace ? document.getElementById('etaTime').textContent : null
+      };
+
+      logs.unshift(entry);
+      renderLog();
+      showToast(`✅ Check-in #${checkInCount} บันทึกแล้ว`);
+
+      // Drop numbered pin
+      if (mapReady && map) {
+        new google.maps.Marker({
+          position: { lat: parseFloat(lat), lng: parseFloat(lng) },
+          map,
+          label: { text: String(checkInCount), color: 'white', fontSize: '11px', fontWeight: 'bold' },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 14,
+            fillColor: '#e53935', fillOpacity: 1,
+            strokeColor: 'white', strokeWeight: 2
+          }
+        });
+      }
+    }
+
+    // ─── Log Render ───────────────────────────────────────
+    function renderLog() {
+      const el = document.getElementById('logList');
+      if (!logs.length) {
+        el.innerHTML = '<div class="log-empty">ยังไม่มีการ Check-in</div>';
+        return;
+      }
+      el.innerHTML = logs.map(e => `
+        <div class="log-item">
+          <div class="log-num">${e.num}</div>
+          <div class="log-detail">
+            <div class="log-coords">📍 ${e.lat}, ${e.lng}</div>
+            <div class="log-meta">
+              🎯 ±${e.accuracy}m &nbsp;|&nbsp; 🕐 ${e.date} ${e.time}
+              ${e.dest ? `<br>🏪 ${e.dest}${e.eta ? ' · ETA: ' + e.eta : ''}` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearLog() {
+      logs = [];
+      checkInCount = 0;
+      renderLog();
+    }
+
+    // ─── Helpers ─────────────────────────────────────────
+    function setStatus(msg, type) {
+      const el = document.getElementById('valStatus');
+      el.textContent = msg;
+      el.style.color = type === 'good' ? '#2e7d32' : type === 'bad' ? '#c62828' : '#333';
+    }
+    function setChip(id, state, text) {
+      const el = document.getElementById(id);
+      el.className = `status-chip ${state}`;
+      el.querySelector('span').textContent = text;
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ─── Init ─────────────────────────────────────────────
+    window.addEventListener('load', startGPS);
+  </script>
+</body>
+</html>
