@@ -1,740 +1,541 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>POD GPS Tracker</title>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4&libraries=places&callback=initMap" async defer></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
 
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    /* Header */
+    .header { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; padding: 12px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .header-icon { font-size: 20px; }
+    .header-text h1 { font-size: 14px; font-weight: 700; }
+    .header-text p { font-size: 10px; opacity: 0.8; }
+    .order-badge { margin-left: auto; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
 
-    /* ── Header ── */
-    .header {
-      background: linear-gradient(135deg, #1565c0, #0d47a1);
-      color: white;
-      padding: 14px 16px 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-    .header-icon { font-size: 22px; }
-    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
-    .header p  { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+    /* Driver Card */
+    .driver-card { background: white; border-bottom: 1px solid #e0e0e0; }
+    .driver-card-header { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; cursor: pointer; font-size: 12px; font-weight: 700; color: #444; background: #fafafa; user-select: none; }
+    .driver-card-body { padding: 10px 14px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .driver-card-body.hidden { display: none; }
+    .form-group { display: flex; flex-direction: column; gap: 3px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 9px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group input { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus { border-color: #1565c0; }
 
-    /* ── Status Bar ── */
-    .status-bar {
-      display: flex;
-      gap: 8px;
-      padding: 10px 12px;
-      background: white;
-      border-bottom: 1px solid #e0e0e0;
-      flex-wrap: wrap;
-    }
-    .status-chip {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: #f5f5f5;
-      border-radius: 20px;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #555;
-      flex: 1;
-      min-width: 100px;
-      justify-content: center;
-    }
-    .status-chip .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #9e9e9e;
-      flex-shrink: 0;
-    }
+    /* Status Bar */
+    .status-bar { display: flex; gap: 6px; padding: 8px 12px; background: white; border-bottom: 1px solid #e0e0e0; }
+    .status-chip { display: flex; align-items: center; gap: 4px; background: #f5f5f5; border-radius: 20px; padding: 3px 8px; font-size: 10px; font-weight: 600; color: #555; flex: 1; justify-content: center; }
+    .status-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: #9e9e9e; flex-shrink: 0; }
     .status-chip.good .dot { background: #43a047; animation: pulse 1.5s infinite; }
     .status-chip.warn .dot { background: #fb8c00; }
     .status-chip.bad  .dot { background: #e53935; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    @keyframes pulse {
-      0%,100% { opacity: 1; }
-      50%      { opacity: 0.3; }
-    }
-
-    /* ── Destination Search ── */
-    .dest-section {
-      background: white;
-      padding: 10px 12px;
-      border-bottom: 1px solid #e0e0e0;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .dest-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #e53935;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    #destInput {
-      flex: 1;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 13px;
-      outline: none;
-      color: #1a1a2e;
-      transition: border-color 0.2s;
-    }
+    /* Destination */
+    .dest-section { background: white; padding: 8px 12px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 8px; align-items: center; }
+    .dest-label { font-size: 11px; font-weight: 700; color: #e53935; white-space: nowrap; }
+    #destInput { flex: 1; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
     #destInput:focus { border-color: #1565c0; }
-    .btn-clear-dest {
-      background: none;
-      border: none;
-      font-size: 18px;
-      cursor: pointer;
-      color: #999;
-      padding: 0 2px;
-      display: none;
-    }
+    .btn-x { background: none; border: none; font-size: 16px; cursor: pointer; color: #999; display: none; padding: 0 2px; }
 
-    /* ── Map ── */
-    #map {
-      flex: 1;
-      min-height: 300px;
-      background: #cfd8dc;
-      position: relative;
-    }
-    .map-placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #607d8b;
-      gap: 8px;
-      font-size: 13px;
-      text-align: center;
-      padding: 20px;
-    }
-    .map-placeholder .icon { font-size: 40px; }
+    /* Map */
+    #map { height: 280px; background: #cfd8dc; position: relative; flex-shrink: 0; }
+    .map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #607d8b; gap: 6px; font-size: 13px; text-align: center; }
+    .map-placeholder .icon { font-size: 34px; }
 
-    /* ── ETA Banner ── */
-    .eta-banner {
-      display: none;
-      background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
-      border-top: 3px solid #43a047;
-      padding: 10px 14px;
-      flex-direction: row;
-      align-items: center;
-      gap: 12px;
-    }
+    /* ETA Banner */
+    .eta-banner { display: none; background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border-top: 3px solid #43a047; padding: 10px 14px; flex-direction: row; align-items: center; gap: 12px; }
     .eta-banner.show { display: flex; }
-    .eta-icon { font-size: 26px; flex-shrink: 0; }
-    .eta-detail { flex: 1; }
-    .eta-time {
-      font-size: 20px;
-      font-weight: 800;
-      color: #1b5e20;
-      line-height: 1.1;
-    }
-    .eta-sub  { font-size: 11px; color: #388e3c; margin-top: 2px; }
-    .eta-dist {
-      text-align: right;
-      flex-shrink: 0;
-    }
-    .eta-dist-val  { font-size: 16px; font-weight: 700; color: #2e7d32; }
-    .eta-dist-unit { font-size: 10px; color: #66bb6a; }
+    .eta-time { font-size: 20px; font-weight: 800; color: #1b5e20; }
+    .eta-sub  { font-size: 11px; color: #388e3c; margin-top: 1px; }
+    .eta-dist-val  { font-size: 15px; font-weight: 700; color: #2e7d32; text-align: right; }
+    .eta-dist-unit { font-size: 10px; color: #66bb6a; text-align: right; }
 
-    /* ── Info Cards ── */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      padding: 12px;
-      background: #f0f2f5;
-    }
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 12px 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
+    /* 10km Alert */
+    .nearby-alert { display: none; background: #fff3e0; border-left: 4px solid #ff6f00; padding: 8px 14px; font-size: 12px; font-weight: 700; color: #e65100; align-items: center; gap: 8px; }
+    .nearby-alert.show { display: flex; }
+    .blink { width: 10px; height: 10px; border-radius: 50%; background: #ff6f00; animation: pulse 0.8s infinite; flex-shrink: 0; }
+
+    /* Info Grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 12px; background: #f0f2f5; }
+    .card { background: white; border-radius: 10px; padding: 9px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     .card.full { grid-column: 1 / -1; }
-    .card-label {
-      font-size: 10px;
-      color: #888;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    .card-value {
-      font-size: 15px;
-      font-weight: 700;
-      color: #1a1a2e;
-      word-break: break-all;
-    }
-    .card-value.small { font-size: 12px; }
-    .accuracy-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 12px;
-      font-weight: 700;
-      margin-top: 3px;
-    }
+    .card-label { font-size: 9px; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .card-value { font-size: 13px; font-weight: 700; color: #1a1a2e; word-break: break-all; }
+    .card-value.sm { font-size: 11px; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 700; margin-left: 4px; }
     .acc-good { background: #e8f5e9; color: #2e7d32; }
     .acc-warn { background: #fff3e0; color: #e65100; }
     .acc-bad  { background: #ffebee; color: #c62828; }
+    .dist-near { color: #e53935; font-weight: 800; }
 
-    /* ── POD Button ── */
-    .action-area {
-      padding: 12px;
-      background: white;
-      border-top: 1px solid #e0e0e0;
-    }
-    .btn-pod {
-      width: 100%;
-      padding: 15px;
-      background: linear-gradient(135deg, #1565c0, #0d47a1);
-      color: white;
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(21,101,192,0.4);
-      transition: transform 0.1s, box-shadow 0.1s;
-    }
-    .btn-pod:active {
-      transform: scale(0.97);
-      box-shadow: 0 2px 6px rgba(21,101,192,0.3);
-    }
-    .btn-pod:disabled {
-      background: #b0bec5;
-      box-shadow: none;
-      cursor: not-allowed;
-    }
+    /* Action Area */
+    .action-area { padding: 10px 12px; background: white; border-top: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform 0.1s; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { background: #b0bec5 !important; box-shadow: none !important; cursor: not-allowed; }
+    .btn-blue   { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; box-shadow: 0 3px 10px rgba(21,101,192,0.35); }
+    .btn-green  { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; box-shadow: 0 3px 8px rgba(46,125,50,0.4); }
+    .btn-orange { background: linear-gradient(135deg, #e65100, #bf360c); color: white; box-shadow: 0 3px 8px rgba(230,81,0,0.4); }
+    .btn-pod { font-size: 15px; padding: 14px; }
 
-    /* ── Log ── */
-    .log-section {
-      margin: 0 12px 16px;
-      background: white;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-    .log-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    .log-title { font-size: 12px; font-weight: 700; color: #555; }
-    .btn-clear {
-      font-size: 11px;
-      color: #e53935;
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .log-list { max-height: 180px; overflow-y: auto; }
-    .log-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 10px 14px;
-      border-bottom: 1px solid #f5f5f5;
-      animation: slideIn 0.3s ease;
-    }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .log-num {
-      background: #1565c0;
-      color: white;
-      border-radius: 50%;
-      width: 22px; height: 22px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 700;
-      flex-shrink: 0;
-    }
-    .log-detail { flex: 1; }
+    /* Link Box */
+    .link-box { display: none; margin: 0 12px; padding: 10px 14px; background: #e3f2fd; border: 1.5px solid #90caf9; border-radius: 10px; }
+    .link-label { font-size: 10px; font-weight: 700; color: #1565c0; margin-bottom: 4px; }
+    .link-url { font-size: 11px; color: #0d47a1; word-break: break-all; font-family: monospace; }
+
+    /* Log */
+    .log-section { margin: 8px 12px 20px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .log-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; }
+    .log-title { font-size: 11px; font-weight: 700; color: #555; }
+    .btn-clear { font-size: 11px; color: #e53935; background: none; border: none; cursor: pointer; font-weight: 600; }
+    .log-list { max-height: 160px; overflow-y: auto; }
+    .log-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 14px; border-bottom: 1px solid #f5f5f5; }
+    .log-num { background: #1565c0; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
     .log-coords { font-size: 11px; font-weight: 600; color: #333; }
-    .log-meta   { font-size: 10px; color: #888; margin-top: 2px; }
-    .log-empty  { text-align: center; padding: 20px; color: #bbb; font-size: 12px; }
+    .log-meta   { font-size: 10px; color: #888; margin-top: 1px; }
+    .log-empty  { text-align: center; padding: 16px; color: #bbb; font-size: 12px; }
 
-    /* ── Toast ── */
-    .toast {
-      position: fixed;
-      bottom: 80px;
-      left: 50%; transform: translateX(-50%);
-      background: #1b5e20;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 30px;
-      font-size: 13px;
-      font-weight: 600;
-      opacity: 0;
-      transition: opacity 0.3s;
-      pointer-events: none;
-      white-space: nowrap;
-      z-index: 999;
-    }
+    /* Toast */
+    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #1b5e20; color: white; padding: 8px 18px; border-radius: 30px; font-size: 12px; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
     .toast.show { opacity: 1; }
-
-    /* Override Google Autocomplete dropdown z-index */
     .pac-container { z-index: 9999 !important; }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
-  <div class="header">
-    <div class="header-icon">📦</div>
-    <div>
-      <h1>POD GPS Tracker</h1>
-      <p>Proof of Delivery · Location Accuracy Test</p>
+<!-- Header -->
+<div class="header">
+  <div class="header-icon">📦</div>
+  <div class="header-text">
+    <h1>POD GPS Tracker</h1>
+    <p>Proof of Delivery · Driver App</p>
+  </div>
+  <div class="order-badge" id="orderBadge">—</div>
+</div>
+
+<!-- Driver Info Card -->
+<div class="driver-card">
+  <div class="driver-card-header" onclick="toggleDriverCard()">
+    <span>👤 ข้อมูลพนักงานส่ง</span>
+    <span id="driverToggleIcon">▼</span>
+  </div>
+  <div class="driver-card-body" id="driverCardBody">
+    <div class="form-group">
+      <label>ชื่อพนักงาน</label>
+      <input id="driverName" type="text" placeholder="ชื่อ-นามสกุล" />
+    </div>
+    <div class="form-group">
+      <label>เบอร์โทร</label>
+      <input id="driverPhone" type="tel" placeholder="0812345678" />
+    </div>
+    <div class="form-group full">
+      <label>ทะเบียนรถ</label>
+      <input id="driverPlate" type="text" placeholder="กข 1234 กรุงเทพ" />
     </div>
   </div>
+</div>
 
-  <!-- Status Bar -->
-  <div class="status-bar">
-    <div class="status-chip" id="chipGPS">
-      <div class="dot"></div>
-      <span>GPS: รอสัญญาณ</span>
-    </div>
-    <div class="status-chip" id="chipMap">
-      <div class="dot"></div>
-      <span>แผนที่: โหลด...</span>
-    </div>
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="status-chip" id="chipGPS"><div class="dot"></div><span>GPS: รอ</span></div>
+  <div class="status-chip" id="chipMap"><div class="dot"></div><span>แผนที่: โหลด</span></div>
+  <div class="status-chip" id="chipFB"><div class="dot"></div><span>Firebase: —</span></div>
+</div>
+
+<!-- Destination Search -->
+<div class="dest-section">
+  <div class="dest-label">🏪 ปลายทาง</div>
+  <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
+  <button class="btn-x" id="btnClearDest" onclick="clearDestination()">✕</button>
+</div>
+
+<!-- Map -->
+<div id="map">
+  <div class="map-placeholder" id="mapPlaceholder">
+    <div class="icon">🗺️</div>
+    <div>กำลังโหลดแผนที่...</div>
   </div>
+</div>
 
-  <!-- File:// Warning -->
-  <div id="fileWarning" style="display:none; background:#fff3cd; border-left:4px solid #ffc107; padding:8px 12px; font-size:11px; color:#856404;">
-    <b>⚠️ โหมด Local File</b> — Autocomplete ไม่ทำงานบน file:// กรุณา <b>พิมพ์ชื่อสถานที่แล้วกด Enter</b> แทน<br>
-    <span style="opacity:0.8">หรืออัปโหลดไฟล์ขึ้น Web Server เพื่อใช้ Autocomplete เต็มรูปแบบ</span>
+<!-- ETA Banner -->
+<div class="eta-banner" id="etaBanner">
+  <div style="font-size:24px">🚗</div>
+  <div style="flex:1">
+    <div class="eta-time" id="etaTime">—</div>
+    <div class="eta-sub"  id="etaSub">เวลาโดยประมาณ</div>
   </div>
-
-  <!-- Destination Search -->
-  <div class="dest-section">
-    <div class="dest-label">🏪 ปลายทาง</div>
-    <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
-    <button class="btn-clear-dest" id="btnClearDest" onclick="clearDestination()">✕</button>
+  <div>
+    <div class="eta-dist-val"  id="etaDist">—</div>
+    <div class="eta-dist-unit">ระยะทาง</div>
   </div>
+</div>
 
-  <!-- Map -->
-  <div id="map">
-    <div class="map-placeholder" id="mapPlaceholder">
-      <div class="icon">🗺️</div>
-      <div>กำลังโหลดแผนที่...<br><small>หรือรอ GPS ล็อคสัญญาณ</small></div>
-    </div>
+<!-- 10km Alert -->
+<div class="nearby-alert" id="nearbyAlert">
+  <div class="blink"></div>
+  <span>ใกล้ถึงแล้ว! กำลัง Broadcast ตำแหน่งให้ลูกค้า real-time</span>
+</div>
+
+<!-- Info Cards -->
+<div class="info-grid">
+  <div class="card"><div class="card-label">📍 Latitude</div><div class="card-value" id="valLat">—</div></div>
+  <div class="card"><div class="card-label">📍 Longitude</div><div class="card-value" id="valLng">—</div></div>
+  <div class="card"><div class="card-label">🎯 Accuracy</div><div class="card-value" id="valAcc">—</div></div>
+  <div class="card"><div class="card-label">🕐 เวลา</div><div class="card-value sm" id="valTime">—</div></div>
+  <div class="card"><div class="card-label">📏 ระยะถึงลูกค้า</div><div class="card-value" id="valDist">—</div></div>
+  <div class="card"><div class="card-label">📡 สถานะ</div><div class="card-value sm" id="valStatus">รอ GPS...</div></div>
+</div>
+
+<!-- Action Area -->
+<div class="action-area">
+  <button class="btn btn-blue" id="btnStart" onclick="startOrder()">🚀 เริ่มการส่ง / สร้าง Order</button>
+  <div class="btn-row">
+    <button class="btn btn-green"  id="btnGMaps"  onclick="openGoogleMaps()"   disabled>🗺️ Google Maps</button>
+    <button class="btn btn-orange" id="btnLink"   onclick="copyCustomerLink()" disabled>📋 Link ลูกค้า</button>
   </div>
+  <button class="btn btn-blue btn-pod" id="btnPOD" onclick="checkIn()" disabled>✅ บันทึก POD (Check-in)</button>
+</div>
 
-  <!-- ETA Banner -->
-  <div class="eta-banner" id="etaBanner">
-    <div class="eta-icon">🚗</div>
-    <div class="eta-detail">
-      <div class="eta-time" id="etaTime">—</div>
-      <div class="eta-sub" id="etaSub">เวลาโดยประมาณ</div>
-    </div>
-    <div class="eta-dist">
-      <div class="eta-dist-val" id="etaDist">—</div>
-      <div class="eta-dist-unit">ระยะทาง</div>
-    </div>
+<!-- Customer Link -->
+<div class="link-box" id="linkBox">
+  <div class="link-label">🔗 Link สำหรับส่งให้ลูกค้า (กด "📋 Link ลูกค้า" เพื่อคัดลอก):</div>
+  <div class="link-url" id="linkUrl">—</div>
+</div>
+
+<!-- Log -->
+<div class="log-section">
+  <div class="log-header">
+    <span class="log-title">📋 ประวัติ Check-in</span>
+    <button class="btn-clear" onclick="clearLog()">ล้างทั้งหมด</button>
   </div>
+  <div class="log-list" id="logList"><div class="log-empty">ยังไม่มีการ Check-in</div></div>
+</div>
 
-  <!-- Info Cards -->
-  <div class="info-grid">
-    <div class="card">
-      <div class="card-label">📍 Latitude</div>
-      <div class="card-value" id="valLat">—</div>
-    </div>
-    <div class="card">
-      <div class="card-label">📍 Longitude</div>
-      <div class="card-value" id="valLng">—</div>
-    </div>
-    <div class="card">
-      <div class="card-label">🎯 Accuracy</div>
-      <div class="card-value" id="valAcc">—</div>
-    </div>
-    <div class="card">
-      <div class="card-label">🕐 เวลา</div>
-      <div class="card-value small" id="valTime">—</div>
-    </div>
-    <div class="card full">
-      <div class="card-label">📡 สถานะ</div>
-      <div class="card-value small" id="valStatus">กำลังขอสิทธิ์ GPS...</div>
-    </div>
-  </div>
+<div class="toast" id="toast"></div>
 
-  <!-- POD Button -->
-  <div class="action-area">
-    <button class="btn-pod" id="btnPOD" disabled onclick="checkIn()">
-      ✅ บันทึก POD (Check-in)
-    </button>
-  </div>
+<script>
+  // ─── Firebase ────────────────────────────────────────
+  firebase.initializeApp({
+    apiKey: "AIzaSyBwNfPT-jBpz8p6iNNM6_l6yHnsw4xPGpo",
+    authDomain: "statustracking-mockup.firebaseapp.com",
+    databaseURL: "https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "statustracking-mockup",
+    storageBucket: "statustracking-mockup.firebasestorage.app",
+    messagingSenderId: "423417745590",
+    appId: "1:423417745590:web:2a90c40b718fce6d61d617"
+  });
+  const db = firebase.database();
+  db.ref('.info/connected').on('value', s => setChip('chipFB', s.val() ? 'good' : 'warn', s.val() ? 'Firebase: ✓' : 'Firebase: —'));
 
-  <!-- Log -->
-  <div class="log-section">
-    <div class="log-header">
-      <span class="log-title">📋 ประวัติการ Check-in</span>
-      <button class="btn-clear" onclick="clearLog()">ล้างทั้งหมด</button>
-    </div>
-    <div class="log-list" id="logList">
-      <div class="log-empty">ยังไม่มีการ Check-in</div>
-    </div>
-  </div>
+  // ─── State ───────────────────────────────────────────
+  let map, myMarker, accCircle, destMarker, dirService, dirRenderer;
+  let currentPos = null, destPlace = null;
+  let orderId = genOrderId(), orderActive = false;
+  let broadcastTimer = null;
+  let checkInCount = 0, logs = [];
+  let customerLink = '';
+  document.getElementById('orderBadge').textContent = orderId;
 
-  <!-- Toast -->
-  <div class="toast" id="toast"></div>
+  // ─── Maps Init ───────────────────────────────────────
+  function initMap() {
+    const ph = document.getElementById('mapPlaceholder');
+    map = new google.maps.Map(document.getElementById('map'), {
+      zoom: 14, center: {lat:13.7563, lng:100.5018},
+      mapTypeId: 'roadmap', disableDefaultUI: true,
+      zoomControl: true, gestureHandling: 'greedy'
+    });
+    if (ph) ph.style.display = 'none';
+    setChip('chipMap', 'good', 'แผนที่: พร้อม');
 
-  <script>
-    // ─── State ───────────────────────────────────────────
-    let map = null;
-    let myMarker = null;
-    let accuracyCircle = null;
-    let destMarker = null;
-    let directionsRenderer = null;
-    let directionsService = null;
-    let currentPos = null;
-    let destPlace = null;
-    let checkInCount = 0;
-    let logs = [];
-    let mapReady = false;
+    dirService  = new google.maps.DirectionsService();
+    dirRenderer = new google.maps.DirectionsRenderer({
+      map, suppressMarkers: true,
+      polylineOptions: {strokeColor:'#1565c0', strokeWeight:5, strokeOpacity:0.75}
+    });
 
-    // ─── Google Maps Callback ─────────────────────────────
-    function initMap() {
-      // บันทึก reference ก่อน Maps API จะล้าง DOM
-      const placeholder = document.getElementById('mapPlaceholder');
+    const ac = new google.maps.places.Autocomplete(
+      document.getElementById('destInput'),
+      {fields:['geometry','name','formatted_address'], componentRestrictions:{country:'th'}}
+    );
+    ac.addListener('place_changed', () => {
+      const p = ac.getPlace();
+      if (!p.geometry) return;
+      destPlace = p;
+      document.getElementById('btnClearDest').style.display = 'block';
+      document.getElementById('btnGMaps').disabled = false;
+      placeDestMarker(p.geometry.location);
+      if (currentPos) calcRoute();
+    });
+    if (currentPos) updateMyPin(currentPos);
+  }
 
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 14,
-        center: { lat: 13.7563, lng: 100.5018 },
-        mapTypeId: 'roadmap',
-        disableDefaultUI: true,
-        zoomControl: true,
-        gestureHandling: 'greedy'
-      });
+  // ─── GPS ─────────────────────────────────────────────
+  function startGPS() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(onGPS, onGPSErr, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+  }
 
-      // ใช้ reference ที่บันทึกไว้ (ไม่ค้นหาใหม่หลัง Maps ล้าง DOM)
-      if (placeholder) placeholder.style.display = 'none';
-      mapReady = true;
-      setChip('chipMap', 'good', 'แผนที่: พร้อม');
+  function onGPS(pos) {
+    currentPos = pos;
+    const {latitude:lat, longitude:lng, accuracy:acc} = pos.coords;
+    const now = new Date();
+    document.getElementById('valLat').textContent  = lat.toFixed(7);
+    document.getElementById('valLng').textContent  = lng.toFixed(7);
+    document.getElementById('valTime').textContent = now.toLocaleTimeString('th-TH');
 
-      // Directions
-      directionsService  = new google.maps.DirectionsService();
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map,
-        suppressMarkers: true,
-        polylineOptions: { strokeColor: '#1565c0', strokeWeight: 5, strokeOpacity: 0.8 }
-      });
+    const acCls = acc<=20?'acc-good':acc<=50?'acc-warn':'acc-bad';
+    const acLbl = acc<=20?'🟢 ดี':acc<=50?'🟡 พอใช้':'🔴 ต่ำ';
+    document.getElementById('valAcc').innerHTML = `${Math.round(acc)}m<span class="badge ${acCls}">${acLbl}</span>`;
+    setChip('chipGPS', acc<=20?'good':acc<=50?'warn':'bad', `GPS: ±${Math.round(acc)}m`);
+    document.getElementById('valStatus').textContent = `✅ GPS ล็อค ±${Math.round(acc)}m`;
+    document.getElementById('valStatus').style.color = '#2e7d32';
+    document.getElementById('btnPOD').disabled = false;
 
-      // Places Autocomplete — ต้องการ HTTP/HTTPS เท่านั้น
-      if (window.location.protocol === 'file:') {
-        // โหมด file:// → ใช้ manual input แทน Autocomplete
-        document.getElementById('destInput').placeholder = 'พิมพ์ชื่อสถานที่ แล้วกด Enter';
-        document.getElementById('destInput').addEventListener('keydown', e => {
-          if (e.key === 'Enter') geocodeAddress(e.target.value);
-        });
-        document.getElementById('fileWarning').style.display = 'block';
-      } else {
-        // โหมด HTTP → ใช้ Places Autocomplete ปกติ
-        const input = document.getElementById('destInput');
-        const autocomplete = new google.maps.places.Autocomplete(input, {
-          fields: ['geometry', 'name', 'formatted_address'],
-          componentRestrictions: { country: 'th' }
-        });
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          if (!place.geometry) return;
-          destPlace = place;
-          document.getElementById('btnClearDest').style.display = 'block';
-          setDestinationMarker(place.geometry.location);
-          if (currentPos) calcRoute();
-        });
-      }
+    if (map) updateMyPin(pos);
 
-      if (currentPos) updateMap(currentPos);
+    if (destPlace) {
+      const dLat = destPlace.geometry.location.lat();
+      const dLng = destPlace.geometry.location.lng();
+      const dist = haversine(lat, lng, dLat, dLng);
+      const dTxt = dist < 1 ? `${Math.round(dist*1000)} ม.` : `${dist.toFixed(1)} กม.`;
+      document.getElementById('valDist').innerHTML = dist<=10
+        ? `<span class="dist-near">${dTxt} 🔴</span>` : dTxt;
+
+      if (dist<=10 && orderActive) startBroadcast();
+      else if (dist>10 && broadcastTimer)  stopBroadcast();
+      if (map) calcRoute();
     }
+    if (orderActive) broadcastNow();
+  }
 
-    // ─── Geocode สำหรับโหมด file:// ──────────────────────
-    function geocodeAddress(address) {
-      if (!address.trim()) return;
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ address: address + ' ประเทศไทย' }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          const place = {
-            geometry: { location: results[0].geometry.location },
-            name: address,
-            formatted_address: results[0].formatted_address
-          };
-          destPlace = place;
-          document.getElementById('btnClearDest').style.display = 'block';
-          setDestinationMarker(place.geometry.location);
-          if (currentPos) calcRoute();
-        } else {
-          showToast('❌ ไม่พบสถานที่ ลองพิมพ์ใหม่');
+  function onGPSErr(err) {
+    const m = {1:'🚫 ไม่ได้รับอนุญาต',2:'📡 ไม่พบสัญญาณ',3:'⏱️ Timeout'};
+    document.getElementById('valStatus').textContent = m[err.code]||'❌ GPS Error';
+    setChip('chipGPS','bad','GPS: Error');
+  }
+
+  // ─── Map: My Pin ─────────────────────────────────────
+  function updateMyPin(pos) {
+    const ll = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+    if (!myMarker) {
+      myMarker = new google.maps.Marker({
+        position:ll, map, zIndex:10,
+        icon:{path:google.maps.SymbolPath.CIRCLE, scale:10, fillColor:'#1565c0', fillOpacity:1, strokeColor:'white', strokeWeight:3}
+      });
+      accCircle = new google.maps.Circle({
+        map, center:ll, radius:pos.coords.accuracy,
+        fillColor:'#1565c0', fillOpacity:0.12, strokeColor:'#1565c0', strokeOpacity:0.4, strokeWeight:1
+      });
+    } else {
+      myMarker.setPosition(ll);
+      accCircle.setCenter(ll); accCircle.setRadius(pos.coords.accuracy);
+    }
+    if (!destPlace) map.panTo(ll);
+  }
+
+  // ─── Map: Dest Pin ───────────────────────────────────
+  function placeDestMarker(loc) {
+    if (destMarker) destMarker.setMap(null);
+    destMarker = new google.maps.Marker({
+      position:loc, map, zIndex:20,
+      animation:google.maps.Animation.DROP,
+      icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+    });
+    map.panTo(loc);
+  }
+
+  // ─── Directions ──────────────────────────────────────
+  function calcRoute() {
+    if (!currentPos||!destPlace) return;
+    dirService.route({
+      origin:{lat:currentPos.coords.latitude, lng:currentPos.coords.longitude},
+      destination:destPlace.geometry.location,
+      travelMode:google.maps.TravelMode.DRIVING, region:'TH'
+    }, (res,status) => {
+      if (status==='OK') {
+        dirRenderer.setDirections(res);
+        const leg = res.routes[0].legs[0];
+        document.getElementById('etaTime').textContent = leg.duration.text;
+        document.getElementById('etaDist').textContent = leg.distance.text;
+        document.getElementById('etaSub').textContent  = `ถึง: ${destPlace.name||destPlace.formatted_address}`;
+        document.getElementById('etaBanner').classList.add('show');
+        if (orderActive) {
+          db.ref(`orders/${orderId}/eta`).set(leg.duration.text);
+          db.ref(`orders/${orderId}/etaDistance`).set(leg.distance.text);
         }
-      });
-    }
-
-    // ─── GPS Tracking ─────────────────────────────────────
-    function startGPS() {
-      if (!navigator.geolocation) {
-        setStatus('❌ Browser นี้ไม่รองรับ GPS', 'bad');
-        return;
       }
-      setStatus('⏳ กำลังขอสิทธิ์ GPS...', '');
-      navigator.geolocation.watchPosition(onGPSSuccess, onGPSError, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      });
+    });
+  }
+
+  // ─── Clear Dest ──────────────────────────────────────
+  function clearDestination() {
+    destPlace = null;
+    document.getElementById('destInput').value = '';
+    document.getElementById('btnClearDest').style.display = 'none';
+    document.getElementById('btnGMaps').disabled = true;
+    document.getElementById('etaBanner').classList.remove('show');
+    document.getElementById('valDist').textContent = '—';
+    if (destMarker) { destMarker.setMap(null); destMarker = null; }
+    if (dirRenderer) dirRenderer.setDirections({routes:[]});
+    if (currentPos) map.panTo({lat:currentPos.coords.latitude, lng:currentPos.coords.longitude});
+  }
+
+  // ─── Start Order ─────────────────────────────────────
+  function startOrder() {
+    const name  = document.getElementById('driverName').value.trim();
+    const phone = document.getElementById('driverPhone').value.trim();
+    const plate = document.getElementById('driverPlate').value.trim();
+    if (!name||!phone||!plate) { showToast('⚠️ กรอกข้อมูลพนักงานให้ครบก่อน'); return; }
+    if (!destPlace)             { showToast('⚠️ เลือกปลายทางก่อน'); return; }
+    if (!currentPos)            { showToast('⚠️ รอ GPS ล็อคก่อน'); return; }
+
+    orderActive = true;
+
+    // Customer link (relative URL)
+    const base = window.location.href.replace(/[^\/]*(\?.*)?$/, '');
+    customerLink = `${base}track.html?order=${orderId}`;
+    document.getElementById('linkUrl').textContent = customerLink;
+    document.getElementById('linkBox').style.display = 'block';
+    document.getElementById('btnLink').disabled = false;
+
+    // Save to Firebase
+    db.ref(`orders/${orderId}`).set({
+      driver: {name, phone, plate},
+      customer: {
+        lat: destPlace.geometry.location.lat(),
+        lng: destPlace.geometry.location.lng(),
+        name: destPlace.name||'',
+        address: destPlace.formatted_address||''
+      },
+      status: 'delivering',
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      eta: document.getElementById('etaTime').textContent||'—',
+      etaDistance: document.getElementById('etaDist').textContent||'—'
+    });
+
+    broadcastNow();
+    document.getElementById('driverCardBody').classList.add('hidden');
+    document.getElementById('driverToggleIcon').textContent = '▶';
+    document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+    document.getElementById('btnStart').disabled = true;
+    showToast(`🚀 Order ${orderId} เริ่มแล้ว!`);
+  }
+
+  // ─── Broadcast ───────────────────────────────────────
+  function startBroadcast() {
+    if (broadcastTimer) return;
+    document.getElementById('nearbyAlert').classList.add('show');
+    broadcastTimer = setInterval(broadcastNow, 5000);
+    showToast('📡 เริ่ม Broadcast ตำแหน่ง real-time!');
+  }
+  function stopBroadcast() {
+    clearInterval(broadcastTimer); broadcastTimer = null;
+    document.getElementById('nearbyAlert').classList.remove('show');
+  }
+  function broadcastNow() {
+    if (!currentPos||!orderId||!orderActive) return;
+    db.ref(`orders/${orderId}/location`).set({
+      lat: currentPos.coords.latitude,
+      lng: currentPos.coords.longitude,
+      accuracy: currentPos.coords.accuracy,
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+
+  // ─── Google Maps Navigation ───────────────────────────
+  function openGoogleMaps() {
+    if (!destPlace) return;
+    const dLat = destPlace.geometry.location.lat();
+    const dLng = destPlace.geometry.location.lng();
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${dLat},${dLng}&travelmode=driving`;
+    if (currentPos) url += `&origin=${currentPos.coords.latitude},${currentPos.coords.longitude}`;
+    window.open(url, '_blank');
+  }
+
+  // ─── Copy Link ───────────────────────────────────────
+  function copyCustomerLink() {
+    if (!customerLink) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(customerLink).then(() => showToast('📋 คัดลอก Link แล้ว!'));
+    } else {
+      prompt('คัดลอก Link นี้:', customerLink);
     }
+  }
 
-    function onGPSSuccess(pos) {
-      currentPos = pos;
-      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-      const now = new Date();
+  // ─── POD Check-in ────────────────────────────────────
+  function checkIn() {
+    if (!currentPos) return;
+    checkInCount++;
+    const {latitude:lat, longitude:lng, accuracy:acc} = currentPos.coords;
+    const now = new Date();
+    logs.unshift({
+      num: checkInCount,
+      lat: lat.toFixed(7), lng: lng.toFixed(7),
+      accuracy: Math.round(acc),
+      time: now.toLocaleTimeString('th-TH'),
+      date: now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}),
+      dest: destPlace?(destPlace.name||destPlace.formatted_address):null,
+      eta: destPlace?document.getElementById('etaTime').textContent:null
+    });
+    renderLog();
+    showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
+    if (orderActive) { db.ref(`orders/${orderId}/status`).set('arrived'); stopBroadcast(); }
+    if (map) new google.maps.Marker({
+      position:{lat, lng}, map,
+      label:{text:String(checkInCount), color:'white', fontSize:'11px', fontWeight:'bold'},
+      icon:{path:google.maps.SymbolPath.CIRCLE, scale:14, fillColor:'#e53935', fillOpacity:1, strokeColor:'white', strokeWeight:2}
+    });
+  }
 
-      document.getElementById('valLat').textContent  = lat.toFixed(7);
-      document.getElementById('valLng').textContent  = lng.toFixed(7);
-      document.getElementById('valTime').textContent = now.toLocaleTimeString('th-TH');
-
-      const accClass = accuracy <= 20 ? 'acc-good' : accuracy <= 50 ? 'acc-warn' : 'acc-bad';
-      const accLabel = accuracy <= 20 ? '🟢 ดีมาก' : accuracy <= 50 ? '🟡 พอใช้' : '🔴 ต่ำ';
-      document.getElementById('valAcc').innerHTML =
-        `${Math.round(accuracy)} เมตร <span class="accuracy-badge ${accClass}">${accLabel}</span>`;
-
-      const chipClass = accuracy <= 20 ? 'good' : accuracy <= 50 ? 'warn' : 'bad';
-      setChip('chipGPS', chipClass, `GPS: ±${Math.round(accuracy)}m`);
-      setStatus(`✅ GPS ล็อคแล้ว — ความแม่นยำ ±${Math.round(accuracy)} เมตร`, 'good');
-      document.getElementById('btnPOD').disabled = false;
-
-      if (mapReady) {
-        updateMap(pos);
-        if (destPlace) calcRoute(); // อัปเดต ETA เมื่อตำแหน่งเปลี่ยน
-      }
-    }
-
-    function onGPSError(err) {
-      const msg = {
-        1: '🚫 ไม่ได้รับอนุญาต GPS — กรุณาอนุญาตใน Settings',
-        2: '📡 ไม่พบสัญญาณ GPS',
-        3: '⏱️ GPS Timeout — ลองใหม่อีกครั้ง'
-      }[err.code] || '❌ GPS Error';
-      setStatus(msg, 'bad');
-      setChip('chipGPS', 'bad', 'GPS: Error');
-    }
-
-    // ─── Map: My Position ─────────────────────────────────
-    function updateMap(pos) {
-      const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      const acc = pos.coords.accuracy;
-
-      if (!myMarker) {
-        myMarker = new google.maps.Marker({
-          position: latlng, map,
-          title: 'ตำแหน่งของฉัน',
-          zIndex: 10,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#1565c0', fillOpacity: 1,
-            strokeColor: 'white', strokeWeight: 3
-          }
-        });
-        accuracyCircle = new google.maps.Circle({
-          map, center: latlng, radius: acc,
-          fillColor: '#1565c0', fillOpacity: 0.12,
-          strokeColor: '#1565c0', strokeOpacity: 0.4, strokeWeight: 1
-        });
-      } else {
-        myMarker.setPosition(latlng);
-        accuracyCircle.setCenter(latlng);
-        accuracyCircle.setRadius(acc);
-      }
-
-      if (!destPlace) map.panTo(latlng);
-    }
-
-    // ─── Map: Destination Marker ──────────────────────────
-    function setDestinationMarker(location) {
-      if (destMarker) destMarker.setMap(null);
-      destMarker = new google.maps.Marker({
-        position: location, map,
-        title: 'ปลายทาง',
-        zIndex: 20,
-        animation: google.maps.Animation.DROP,
-        icon: {
-          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        }
-      });
-      map.panTo(location);
-    }
-
-    // ─── Directions + ETA ─────────────────────────────────
-    function calcRoute() {
-      if (!currentPos || !destPlace) return;
-
-      const origin = {
-        lat: currentPos.coords.latitude,
-        lng: currentPos.coords.longitude
-      };
-      const destination = destPlace.geometry.location;
-
-      directionsService.route({
-        origin,
-        destination,
-        travelMode: google.maps.TravelMode.DRIVING,
-        region: 'TH'
-      }, (result, status) => {
-        if (status === 'OK') {
-          directionsRenderer.setDirections(result);
-
-          const leg = result.routes[0].legs[0];
-          document.getElementById('etaTime').textContent  = leg.duration.text;
-          document.getElementById('etaDist').textContent  = leg.distance.text;
-          document.getElementById('etaSub').textContent   =
-            `ถึง: ${destPlace.name || destPlace.formatted_address}`;
-          document.getElementById('etaBanner').classList.add('show');
-
-          // Fit map to show full route
-          const bounds = new google.maps.LatLngBounds();
-          bounds.extend(origin);
-          bounds.extend(destination);
-          map.fitBounds(bounds, { top: 40, bottom: 40, left: 20, right: 20 });
-        } else {
-          document.getElementById('etaTime').textContent = 'คำนวณไม่ได้';
-          document.getElementById('etaDist').textContent = '—';
-          document.getElementById('etaBanner').classList.add('show');
-        }
-      });
-    }
-
-    // ─── Clear Destination ────────────────────────────────
-    function clearDestination() {
-      destPlace = null;
-      document.getElementById('destInput').value = '';
-      document.getElementById('btnClearDest').style.display = 'none';
-      document.getElementById('etaBanner').classList.remove('show');
-      if (destMarker) { destMarker.setMap(null); destMarker = null; }
-      if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
-      if (currentPos) map.panTo({
-        lat: currentPos.coords.latitude,
-        lng: currentPos.coords.longitude
-      });
-    }
-
-    // ─── Check-in / POD ───────────────────────────────────
-    function checkIn() {
-      if (!currentPos) return;
-      checkInCount++;
-      const { latitude: lat, longitude: lng, accuracy } = currentPos.coords;
-      const now = new Date();
-
-      const entry = {
-        num: checkInCount,
-        lat: lat.toFixed(7),
-        lng: lng.toFixed(7),
-        accuracy: Math.round(accuracy),
-        time: now.toLocaleTimeString('th-TH'),
-        date: now.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric' }),
-        dest: destPlace ? (destPlace.name || destPlace.formatted_address) : null,
-        eta:  destPlace ? document.getElementById('etaTime').textContent : null
-      };
-
-      logs.unshift(entry);
-      renderLog();
-      showToast(`✅ Check-in #${checkInCount} บันทึกแล้ว`);
-
-      // Drop numbered pin
-      if (mapReady && map) {
-        new google.maps.Marker({
-          position: { lat: parseFloat(lat), lng: parseFloat(lng) },
-          map,
-          label: { text: String(checkInCount), color: 'white', fontSize: '11px', fontWeight: 'bold' },
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 14,
-            fillColor: '#e53935', fillOpacity: 1,
-            strokeColor: 'white', strokeWeight: 2
-          }
-        });
-      }
-    }
-
-    // ─── Log Render ───────────────────────────────────────
-    function renderLog() {
-      const el = document.getElementById('logList');
-      if (!logs.length) {
-        el.innerHTML = '<div class="log-empty">ยังไม่มีการ Check-in</div>';
-        return;
-      }
-      el.innerHTML = logs.map(e => `
-        <div class="log-item">
-          <div class="log-num">${e.num}</div>
-          <div class="log-detail">
-            <div class="log-coords">📍 ${e.lat}, ${e.lng}</div>
-            <div class="log-meta">
-              🎯 ±${e.accuracy}m &nbsp;|&nbsp; 🕐 ${e.date} ${e.time}
-              ${e.dest ? `<br>🏪 ${e.dest}${e.eta ? ' · ETA: ' + e.eta : ''}` : ''}
-            </div>
-          </div>
+  // ─── Helpers ─────────────────────────────────────────
+  function haversine(la1,lo1,la2,lo2) {
+    const R=6371, dL=(la2-la1)*Math.PI/180, dG=(lo2-lo1)*Math.PI/180;
+    const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dG/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+  function genOrderId() {
+    const d=new Date(), ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    return `ORD${ds}${Math.random().toString(36).substr(2,4).toUpperCase()}`;
+  }
+  function toggleDriverCard() {
+    const b=document.getElementById('driverCardBody'), i=document.getElementById('driverToggleIcon');
+    b.classList.toggle('hidden'); i.textContent=b.classList.contains('hidden')?'▶':'▼';
+  }
+  function setChip(id,state,text) {
+    const el=document.getElementById(id); el.className=`status-chip ${state}`; el.querySelector('span').textContent=text;
+  }
+  function showToast(msg) {
+    const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+  }
+  function renderLog() {
+    const el=document.getElementById('logList');
+    if(!logs.length){el.innerHTML='<div class="log-empty">ยังไม่มีการ Check-in</div>';return;}
+    el.innerHTML=logs.map(e=>`
+      <div class="log-item">
+        <div class="log-num">${e.num}</div>
+        <div>
+          <div class="log-coords">📍 ${e.lat}, ${e.lng}</div>
+          <div class="log-meta">🎯 ±${e.accuracy}m · 🕐 ${e.date} ${e.time}${e.dest?`<br>🏪 ${e.dest}${e.eta?' · ETA: '+e.eta:''}`:''}</div>
         </div>
-      `).join('');
-    }
+      </div>`).join('');
+  }
+  function clearLog() { logs=[]; checkInCount=0; renderLog(); }
 
-    function clearLog() {
-      logs = [];
-      checkInCount = 0;
-      renderLog();
-    }
-
-    // ─── Helpers ─────────────────────────────────────────
-    function setStatus(msg, type) {
-      const el = document.getElementById('valStatus');
-      el.textContent = msg;
-      el.style.color = type === 'good' ? '#2e7d32' : type === 'bad' ? '#c62828' : '#333';
-    }
-    function setChip(id, state, text) {
-      const el = document.getElementById(id);
-      el.className = `status-chip ${state}`;
-      el.querySelector('span').textContent = text;
-    }
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
-    }
-
-    // ─── Init ─────────────────────────────────────────────
-    window.addEventListener('load', startGPS);
-  </script>
+  window.addEventListener('load', startGPS);
+</script>
 </body>
 </html>
