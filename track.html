@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>ติดตามการส่งของ</title>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4&callback=initMap" async defer></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Loading */
+    .loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 999; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #e0e0e0; border-top-color: #1565c0; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 14px; color: #555; }
+
+    /* Error */
+    .error-screen { display: none; position: fixed; inset: 0; background: white; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 998; }
+    .error-icon { font-size: 48px; }
+    .error-title { font-size: 16px; font-weight: 700; color: #c62828; }
+    .error-sub { font-size: 13px; color: #888; }
+
+    /* Main */
+    .main { display: none; flex-direction: column; min-height: 100vh; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; padding: 12px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .header-icon { font-size: 22px; }
+    .header-text h1 { font-size: 14px; font-weight: 700; }
+    .header-text p { font-size: 10px; opacity: 0.8; margin-top: 1px; }
+    .header-order { margin-left: auto; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+    /* Status Banner */
+    .status-banner { padding: 10px 14px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .status-banner.delivering { background: #e3f2fd; color: #1565c0; border-bottom: 2px solid #90caf9; }
+    .status-banner.nearby     { background: #fff3e0; color: #e65100; border-bottom: 2px solid #ff8f00; }
+    .status-banner.arrived    { background: #e8f5e9; color: #2e7d32; border-bottom: 2px solid #66bb6a; }
+    .pulse-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; animation: pulse 1.5s infinite; }
+    .pulse-blue   { background: #1565c0; }
+    .pulse-orange { background: #ff6f00; }
+    .pulse-green  { background: #43a047; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* Map */
+    #map { height: 320px; background: #cfd8dc; flex-shrink: 0; }
+
+    /* ETA Banner */
+    .eta-banner { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+    .eta-main { font-size: 26px; font-weight: 800; line-height: 1; }
+    .eta-label { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+    .eta-dist { margin-left: auto; text-align: right; }
+    .eta-dist-val  { font-size: 18px; font-weight: 700; }
+    .eta-dist-unit { font-size: 10px; opacity: 0.75; }
+
+    /* Cards */
+    .cards { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* Driver Card */
+    .driver-card { background: white; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .driver-card-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .driver-info-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .driver-info-row:last-child { margin-bottom: 0; }
+    .di-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .di-blue   { background: #e3f2fd; }
+    .di-green  { background: #e8f5e9; }
+    .di-orange { background: #fff3e0; }
+    .di-label { font-size: 10px; color: #888; font-weight: 600; }
+    .di-value { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-top: 1px; }
+    .btn-call { margin-left: auto; background: linear-gradient(135deg, #43a047, #2e7d32); color: white; border: none; border-radius: 10px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
+
+    /* Update Card */
+    .update-card { background: white; border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 10px; }
+    .update-icon { font-size: 20px; }
+    .update-text { flex: 1; }
+    .update-label { font-size: 10px; color: #888; font-weight: 600; }
+    .update-time  { font-size: 13px; font-weight: 700; color: #333; margin-top: 2px; }
+    .accuracy-badge { font-size: 11px; color: #666; margin-top: 1px; }
+
+    /* Arrived Banner */
+    .arrived-banner { display: none; background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; padding: 16px; text-align: center; border-radius: 14px; margin: 0 12px; }
+    .arrived-banner.show { display: block; }
+    .arrived-icon { font-size: 36px; margin-bottom: 8px; }
+    .arrived-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+    .arrived-sub { font-size: 12px; opacity: 0.85; }
+
+    /* Footer */
+    .footer { margin-top: auto; padding: 16px; text-align: center; font-size: 11px; color: #bbb; }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">กำลังโหลดข้อมูลการส่ง...</div>
+</div>
+
+<!-- Error -->
+<div class="error-screen" id="errorScreen">
+  <div class="error-icon">❌</div>
+  <div class="error-title">ไม่พบข้อมูลการส่ง</div>
+  <div class="error-sub" id="errorMsg">กรุณาตรวจสอบ Link ที่ได้รับ</div>
+</div>
+
+<!-- Main Content -->
+<div class="main" id="mainContent">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">📦</div>
+    <div class="header-text">
+      <h1>ติดตามการส่งของ</h1>
+      <p>Live Delivery Tracking</p>
+    </div>
+    <div class="header-order" id="headerOrder">—</div>
+  </div>
+
+  <!-- Status Banner -->
+  <div class="status-banner delivering" id="statusBanner">
+    <div class="pulse-dot pulse-blue"></div>
+    <span id="statusText">🚚 กำลังเดินทางมาส่ง...</span>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- ETA Banner -->
+  <div class="eta-banner" id="etaBanner" style="display:none">
+    <div style="font-size:28px">⏱️</div>
+    <div>
+      <div class="eta-main" id="etaMain">—</div>
+      <div class="eta-label">เวลาโดยประมาณ</div>
+    </div>
+    <div class="eta-dist">
+      <div class="eta-dist-val"  id="etaDistVal">—</div>
+      <div class="eta-dist-unit">ระยะทางที่เหลือ</div>
+    </div>
+  </div>
+
+  <div class="cards">
+
+    <!-- Driver Info Card -->
+    <div class="driver-card">
+      <div class="driver-card-title">🚗 ข้อมูลคนส่งของ</div>
+      <div class="driver-info-row">
+        <div class="di-icon di-blue">👤</div>
+        <div>
+          <div class="di-label">ชื่อพนักงาน</div>
+          <div class="di-value" id="driverName">—</div>
+        </div>
+      </div>
+      <div class="driver-info-row">
+        <div class="di-icon di-green">📞</div>
+        <div>
+          <div class="di-label">เบอร์โทร</div>
+          <div class="di-value" id="driverPhone">—</div>
+        </div>
+        <a class="btn-call" id="btnCall" href="#">โทร</a>
+      </div>
+      <div class="driver-info-row">
+        <div class="di-icon di-orange">🚙</div>
+        <div>
+          <div class="di-label">ทะเบียนรถ</div>
+          <div class="di-value" id="driverPlate">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Update Card -->
+    <div class="update-card">
+      <div class="update-icon">📡</div>
+      <div class="update-text">
+        <div class="update-label">อัปเดตตำแหน่งล่าสุด</div>
+        <div class="update-time" id="updateTime">รอข้อมูล...</div>
+        <div class="accuracy-badge" id="updateAccuracy"></div>
+      </div>
+    </div>
+
+    <!-- Arrived Banner -->
+    <div class="arrived-banner" id="arrivedBanner">
+      <div class="arrived-icon">✅</div>
+      <div class="arrived-title">ส่งของถึงแล้ว!</div>
+      <div class="arrived-sub">พนักงานส่งของถึงปลายทางแล้ว</div>
+    </div>
+
+  </div>
+
+  <div class="footer">Powered by POD GPS Tracker · <span id="orderIdFooter">—</span></div>
+</div>
+
+<script>
+  // ─── Firebase ────────────────────────────────────────
+  firebase.initializeApp({
+    apiKey: "AIzaSyBwNfPT-jBpz8p6iNNM6_l6yHnsw4xPGpo",
+    authDomain: "statustracking-mockup.firebaseapp.com",
+    databaseURL: "https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "statustracking-mockup",
+    storageBucket: "statustracking-mockup.firebasestorage.app",
+    messagingSenderId: "423417745590",
+    appId: "1:423417745590:web:2a90c40b718fce6d61d617"
+  });
+  const db = firebase.database();
+
+  // ─── State ───────────────────────────────────────────
+  let map, driverMarker, customerMarker, dirService, dirRenderer;
+  let orderData = null;
+  let lastEtaUpdate = 0;
+  const ETA_THROTTLE = 30000; // recalculate ETA every 30s
+
+  // ─── Get Order ID from URL ────────────────────────────
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get('order');
+
+  // ─── Maps Init ───────────────────────────────────────
+  function initMap() {
+    map = new google.maps.Map(document.getElementById('map'), {
+      zoom: 13, center: {lat:13.7563, lng:100.5018},
+      mapTypeId: 'roadmap', disableDefaultUI: true,
+      zoomControl: true, gestureHandling: 'greedy'
+    });
+    dirService  = new google.maps.DirectionsService();
+    dirRenderer = new google.maps.DirectionsRenderer({
+      map, suppressMarkers: true,
+      polylineOptions: {strokeColor:'#1565c0', strokeWeight:5, strokeOpacity:0.75}
+    });
+    if (orderData) renderMap();
+  }
+
+  // ─── Listen to Firebase ───────────────────────────────
+  function startListening() {
+    if (!orderId) { showError('ไม่พบ Order ID ใน Link'); return; }
+
+    db.ref(`orders/${orderId}`).on('value', snap => {
+      const data = snap.val();
+      if (!data) { showError(`ไม่พบ Order: ${orderId}`); return; }
+
+      orderData = data;
+      hideLoading();
+      showMain();
+      updateUI(data);
+      if (map) renderMap();
+    });
+  }
+
+  // ─── Update UI ───────────────────────────────────────
+  function updateUI(data) {
+    // Header
+    document.getElementById('headerOrder').textContent = orderId;
+    document.getElementById('orderIdFooter').textContent = orderId;
+
+    // Driver info
+    if (data.driver) {
+      document.getElementById('driverName').textContent  = data.driver.name  || '—';
+      document.getElementById('driverPhone').textContent = data.driver.phone || '—';
+      document.getElementById('driverPlate').textContent = data.driver.plate || '—';
+      if (data.driver.phone) {
+        document.getElementById('btnCall').href = `tel:${data.driver.phone}`;
+      }
+    }
+
+    // ETA from Firebase
+    if (data.eta && data.eta !== '—') {
+      document.getElementById('etaMain').textContent    = data.eta;
+      document.getElementById('etaDistVal').textContent = data.etaDistance || '—';
+      document.getElementById('etaBanner').style.display = 'flex';
+    }
+
+    // Status
+    setStatus(data.status);
+
+    // Last location update
+    if (data.location) {
+      const ts = data.location.timestamp;
+      const acc = data.location.accuracy;
+      if (ts) {
+        const d = new Date(ts);
+        document.getElementById('updateTime').textContent = d.toLocaleTimeString('th-TH');
+      }
+      if (acc) {
+        document.getElementById('updateAccuracy').textContent = `ความแม่นยำ: ±${Math.round(acc)} เมตร`;
+      }
+    }
+  }
+
+  // ─── Render Map ──────────────────────────────────────
+  function renderMap() {
+    if (!orderData || !map) return;
+
+    // Customer pin (fixed)
+    if (orderData.customer && !customerMarker) {
+      const cLoc = {lat: orderData.customer.lat, lng: orderData.customer.lng};
+      customerMarker = new google.maps.Marker({
+        position: cLoc, map, zIndex: 20,
+        title: orderData.customer.name||'ปลายทาง',
+        icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+      });
+    }
+
+    // Driver pin (moving)
+    if (orderData.location) {
+      const dLoc = {lat: orderData.location.lat, lng: orderData.location.lng};
+      if (!driverMarker) {
+        driverMarker = new google.maps.Marker({
+          position: dLoc, map, zIndex: 30, title: 'คนส่งของ',
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+          }
+        });
+      } else {
+        driverMarker.setPosition(dLoc);
+      }
+
+      // Fit bounds
+      if (orderData.customer) {
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(dLoc);
+        bounds.extend({lat: orderData.customer.lat, lng: orderData.customer.lng});
+        map.fitBounds(bounds, {top:40, bottom:40, left:30, right:30});
+      } else {
+        map.panTo(dLoc);
+      }
+
+      // Recalculate route (throttled)
+      const now = Date.now();
+      if (orderData.customer && (now - lastEtaUpdate) > ETA_THROTTLE) {
+        lastEtaUpdate = now;
+        calcRoute(dLoc, {lat: orderData.customer.lat, lng: orderData.customer.lng});
+      }
+    }
+  }
+
+  // ─── Directions ──────────────────────────────────────
+  function calcRoute(origin, destination) {
+    dirService.route({
+      origin, destination,
+      travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
+    }, (res, status) => {
+      if (status === 'OK') {
+        dirRenderer.setDirections(res);
+        const leg = res.routes[0].legs[0];
+        document.getElementById('etaMain').textContent    = leg.duration.text;
+        document.getElementById('etaDistVal').textContent = leg.distance.text;
+        document.getElementById('etaBanner').style.display = 'flex';
+      }
+    });
+  }
+
+  // ─── Status ──────────────────────────────────────────
+  function setStatus(status) {
+    const banner = document.getElementById('statusBanner');
+    const text   = document.getElementById('statusText');
+    const dot    = banner.querySelector('.pulse-dot');
+
+    if (status === 'arrived') {
+      banner.className = 'status-banner arrived';
+      text.textContent = '✅ ส่งของถึงแล้ว!';
+      dot.className = 'pulse-dot pulse-green';
+      document.getElementById('arrivedBanner').classList.add('show');
+      document.getElementById('etaBanner').style.display = 'none';
+    } else if (status === 'nearby') {
+      banner.className = 'status-banner nearby';
+      text.textContent = '🔴 ใกล้ถึงแล้ว! กำลังมาส่ง...';
+      dot.className = 'pulse-dot pulse-orange';
+    } else {
+      banner.className = 'status-banner delivering';
+      text.textContent = '🚚 กำลังเดินทางมาส่ง...';
+      dot.className = 'pulse-dot pulse-blue';
+    }
+  }
+
+  // ─── UI Helpers ──────────────────────────────────────
+  function hideLoading() { document.getElementById('loadingScreen').style.display = 'none'; }
+  function showMain()    { document.getElementById('mainContent').style.display = 'flex'; }
+  function showError(msg) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorMsg').textContent = msg;
+    document.getElementById('errorScreen').style.display = 'flex';
+  }
+
+  // ─── Init ─────────────────────────────────────────────
+  window.addEventListener('load', startListening);
+</script>
+</body>
+</html>
