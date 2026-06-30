@@ -58,7 +58,8 @@
     .eta-banner { display: none; background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border-top: 3px solid #43a047; padding: 10px 14px; flex-direction: row; align-items: center; gap: 12px; }
     .eta-banner.show { display: flex; }
     .eta-time { font-size: 20px; font-weight: 800; color: #1b5e20; }
-    .eta-sub  { font-size: 11px; color: #388e3c; margin-top: 1px; }
+    .eta-arrival { font-size: 12px; font-weight: 700; color: #2e7d32; margin-top: 1px; }
+    .eta-sub  { font-size: 10px; color: #66bb6a; margin-top: 1px; }
     .eta-dist-val  { font-size: 15px; font-weight: 700; color: #2e7d32; text-align: right; }
     .eta-dist-unit { font-size: 10px; color: #66bb6a; text-align: right; }
 
@@ -175,7 +176,7 @@
   <div style="font-size:24px">🚗</div>
   <div style="flex:1">
     <div class="eta-time" id="etaTime">—</div>
-    <div class="eta-sub"  id="etaSub">เวลาโดยประมาณ</div>
+    <div class="eta-arrival" id="etaSub">คำนวณเส้นทาง...</div>
   </div>
   <div>
     <div class="eta-dist-val"  id="etaDist">—</div>
@@ -245,6 +246,7 @@
   let currentPos = null, destPlace = null;
   let orderId = genOrderId(), orderActive = false;
   let broadcastTimer = null;
+  let lastRouteCalc = 0;
   let checkInCount = 0, logs = [];
   let customerLink = '';
   document.getElementById('orderBadge').textContent = orderId;
@@ -360,6 +362,9 @@
   // ─── Directions ──────────────────────────────────────
   function calcRoute() {
     if (!currentPos||!destPlace) return;
+    const now = Date.now();
+    if (now - lastRouteCalc < 30000) return; // throttle 30s
+    lastRouteCalc = now;
     dirService.route({
       origin:{lat:currentPos.coords.latitude, lng:currentPos.coords.longitude},
       destination:destPlace.geometry.location,
@@ -368,13 +373,16 @@
       if (status==='OK') {
         dirRenderer.setDirections(res);
         const leg = res.routes[0].legs[0];
+        const arrival = new Date(Date.now() + leg.duration.value * 1000);
+        const arrivalStr = arrival.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) + ' น.';
         document.getElementById('etaTime').textContent = leg.duration.text;
         document.getElementById('etaDist').textContent = leg.distance.text;
-        document.getElementById('etaSub').textContent  = `ถึง: ${destPlace.name||destPlace.formatted_address}`;
+        document.getElementById('etaSub').textContent  = `ถึงประมาณ ${arrivalStr}`;
         document.getElementById('etaBanner').classList.add('show');
         if (orderActive) {
           db.ref(`orders/${orderId}/eta`).set(leg.duration.text);
           db.ref(`orders/${orderId}/etaDistance`).set(leg.distance.text);
+          db.ref(`orders/${orderId}/etaArrival`).set(arrivalStr);
         }
       }
     });
