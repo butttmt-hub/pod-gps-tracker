@@ -136,6 +136,7 @@
     <div style="font-size:28px">⏱️</div>
     <div>
       <div class="eta-main" id="etaMain">—</div>
+      <div class="eta-arrival" id="etaArrival" style="font-size:11px;opacity:0.85;margin-top:2px;"></div>
       <div class="eta-label">เวลาโดยประมาณ</div>
     </div>
     <div class="eta-dist">
@@ -212,7 +213,7 @@
   let map, driverMarker, customerMarker, dirService, dirRenderer;
   let orderData = null;
   let lastEtaUpdate = 0;
-  const ETA_THROTTLE = 30000; // recalculate ETA every 30s
+  const ETA_THROTTLE = 15000; // recalculate ETA every 15s
 
   // ─── Get Order ID from URL ────────────────────────────
   const params = new URLSearchParams(window.location.search);
@@ -269,6 +270,7 @@
     if (data.eta && data.eta !== '—') {
       document.getElementById('etaMain').textContent    = data.eta;
       document.getElementById('etaDistVal').textContent = data.etaDistance || '—';
+      if (data.etaArrival) document.getElementById('etaArrival').textContent = `ถึงประมาณ ${data.etaArrival}`;
       document.getElementById('etaBanner').style.display = 'flex';
     }
 
@@ -345,8 +347,11 @@
       if (status === 'OK') {
         dirRenderer.setDirections(res);
         const leg = res.routes[0].legs[0];
+        const arrival = new Date(Date.now() + leg.duration.value * 1000);
+        const arrivalStr = arrival.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) + ' น.';
         document.getElementById('etaMain').textContent    = leg.duration.text;
         document.getElementById('etaDistVal').textContent = leg.distance.text;
+        document.getElementById('etaArrival').textContent = `ถึงประมาณ ${arrivalStr}`;
         document.getElementById('etaBanner').style.display = 'flex';
       }
     });
