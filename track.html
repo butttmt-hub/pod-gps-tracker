@@ -26,6 +26,7 @@
     .error-icon { font-size: 48px; }
     .error-title { font-size: 16px; font-weight: 700; color: #c62828; }
     .error-sub { font-size: 13px; color: #888; }
+    .error-sub2 { font-size: 11px; color: #bbb; margin-top: 6px; }
 
     /* Main */
     .main { display: none; flex-direction: column; min-height: 100vh; }
@@ -104,9 +105,10 @@
 
 <!-- Error -->
 <div class="error-screen" id="errorScreen">
-  <div class="error-icon">❌</div>
-  <div class="error-title">ไม่พบข้อมูลการส่ง</div>
+  <div class="error-icon" id="errorIcon">❌</div>
+  <div class="error-title" id="errorTitle">ไม่พบข้อมูลการส่ง</div>
   <div class="error-sub" id="errorMsg">กรุณาตรวจสอบ Link ที่ได้รับ</div>
+  <div class="error-sub2" id="errorSub2"></div>
 </div>
 
 <!-- Main Content -->
@@ -240,7 +242,14 @@
 
     db.ref(`orders/${orderId}`).on('value', snap => {
       const data = snap.val();
-      if (!data) { showError(`ไม่พบ Order: ${orderId}`); return; }
+      if (!data) { showError('❌', 'ไม่พบข้อมูลการส่ง', `ไม่พบ Order: ${orderId}`, 'กรุณาตรวจสอบ Link ที่ได้รับ'); return; }
+
+      // เช็ค Expire
+      if (data.expireAt && Date.now() > data.expireAt) {
+        const expiredAt = new Date(data.expireAt).toLocaleString('th-TH');
+        showError('⏰', 'Link นี้หมดอายุแล้ว', 'ข้อมูลการส่งสินค้าถูกปิดแล้ว', `หมดอายุเมื่อ: ${expiredAt}`);
+        return;
+      }
 
       orderData = data;
       hideLoading();
@@ -383,9 +392,12 @@
   // ─── UI Helpers ──────────────────────────────────────
   function hideLoading() { document.getElementById('loadingScreen').style.display = 'none'; }
   function showMain()    { document.getElementById('mainContent').style.display = 'flex'; }
-  function showError(msg) {
+  function showError(icon, title, msg, sub2) {
     document.getElementById('loadingScreen').style.display = 'none';
-    document.getElementById('errorMsg').textContent = msg;
+    if (icon)  document.getElementById('errorIcon').textContent  = icon;
+    if (title) document.getElementById('errorTitle').textContent = title;
+    if (msg)   document.getElementById('errorMsg').textContent   = msg;
+    if (sub2)  document.getElementById('errorSub2').textContent  = sub2;
     document.getElementById('errorScreen').style.display = 'flex';
   }
 
