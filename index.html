@@ -49,6 +49,19 @@
     #destInput:focus { border-color: #1565c0; }
     .btn-x { background: none; border: none; font-size: 16px; cursor: pointer; color: #999; display: none; padding: 0 2px; }
 
+    /* Coords input mode */
+    .dest-mode-toggle { background: white; padding: 0 12px 8px; display: flex; gap: 6px; }
+    .mode-btn { flex: 1; padding: 6px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 11px; font-weight: 700; color: #888; background: #fafafa; cursor: pointer; transition: all 0.2s; }
+    .mode-btn.active { border-color: #1565c0; background: #e3f2fd; color: #1565c0; }
+    .coords-section { display: none; background: white; padding: 8px 12px 10px; border-bottom: 1px solid #e0e0e0; gap: 8px; align-items: flex-end; }
+    .coords-section.show { display: flex; }
+    .coords-field { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+    .coords-field label { font-size: 9px; font-weight: 700; color: #888; text-transform: uppercase; }
+    .coords-field input { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+    .coords-field input:focus { border-color: #1565c0; }
+    .btn-confirm-coords { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; height: 36px; }
+    .coords-hint { font-size: 10px; color: #aaa; padding: 0 12px 6px; background: white; border-bottom: 1px solid #e0e0e0; }
+
     /* Map */
     #map { height: 280px; background: #cfd8dc; position: relative; flex-shrink: 0; }
     .map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #607d8b; gap: 6px; font-size: 13px; text-align: center; }
@@ -156,12 +169,32 @@
   <div class="status-chip" id="chipFB"><div class="dot"></div><span>Firebase: —</span></div>
 </div>
 
+<!-- Mode Toggle -->
+<div class="dest-mode-toggle">
+  <button class="mode-btn active" id="modeSearch" onclick="switchMode('search')">🔍 ค้นหาชื่อ/ที่อยู่</button>
+  <button class="mode-btn"        id="modeCoords" onclick="switchMode('coords')">📌 กรอกพิกัด Lat/Lng</button>
+</div>
+
 <!-- Destination Search -->
-<div class="dest-section">
+<div class="dest-section" id="searchSection">
   <div class="dest-label">🏪 ปลายทาง</div>
   <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
   <button class="btn-x" id="btnClearDest" onclick="clearDestination()">✕</button>
 </div>
+
+<!-- Coords Input -->
+<div class="coords-section" id="coordsSection">
+  <div class="coords-field">
+    <label>Latitude</label>
+    <input id="inputLat" type="number" step="any" placeholder="13.7563" />
+  </div>
+  <div class="coords-field">
+    <label>Longitude</label>
+    <input id="inputLng" type="number" step="any" placeholder="100.5018" />
+  </div>
+  <button class="btn-confirm-coords" onclick="confirmCoords()">📌 ปัก</button>
+</div>
+<div class="coords-hint" id="coordsHint" style="display:none">💡 วาง "lat, lng" แล้วกด ปัก — หรือรับพิกัดจาก Google Maps / Line Location</div>
 
 <!-- Map -->
 <div id="map">
@@ -388,6 +421,40 @@
     });
   }
 
+  // ─── Mode Switch ─────────────────────────────────────
+  function switchMode(mode) {
+    const isCoords = mode === 'coords';
+    document.getElementById('modeSearch').classList.toggle('active', !isCoords);
+    document.getElementById('modeCoords').classList.toggle('active',  isCoords);
+    document.getElementById('searchSection').style.display = isCoords ? 'none' : '';
+    document.getElementById('coordsSection').classList.toggle('show', isCoords);
+    document.getElementById('coordsHint').style.display   = isCoords ? 'block' : 'none';
+    if (!isCoords) clearDestination();
+  }
+
+  // ─── Confirm Coords ──────────────────────────────────
+  function confirmCoords() {
+    const lat = parseFloat(document.getElementById('inputLat').value);
+    const lng = parseFloat(document.getElementById('inputLng').value);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      showToast('⚠️ พิกัดไม่ถูกต้อง ตรวจสอบอีกครั้ง'); return;
+    }
+    const loc = new google.maps.LatLng(lat, lng);
+    // Reverse geocode เพื่อได้ชื่อสถานที่
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({location: loc}, (results, status) => {
+      const name = (status === 'OK' && results[0]) ? results[0].formatted_address : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      destPlace = {
+        geometry: { location: loc },
+        name, formatted_address: name
+      };
+      placeDestMarker(loc);
+      document.getElementById('btnGMaps').disabled = false;
+      if (currentPos) calcRoute();
+      showToast(`📌 ปักหมุด: ${name.substring(0,30)}...`);
+    });
+  }
+
   // ─── Clear Dest ──────────────────────────────────────
   function clearDestination() {
     destPlace = null;
@@ -430,6 +497,7 @@
       },
       status: 'delivering',
       createdAt: firebase.database.ServerValue.TIMESTAMP,
+      expireAt: Date.now() + 24 * 60 * 60 * 1000, // หมดอายุใน 24 ชั่วโมง
       eta: document.getElementById('etaTime').textContent||'—',
       etaDistance: document.getElementById('etaDist').textContent||'—'
     });
@@ -542,6 +610,21 @@
       </div>`).join('');
   }
   function clearLog() { logs=[]; checkInCount=0; renderLog(); }
+
+  // ─── Smart Paste lat,lng into Lat field ──────────────
+  document.getElementById('inputLat').addEventListener('paste', e => {
+    const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+    const parts = text.split(/[\s,]+/);
+    if (parts.length >= 2) {
+      const a = parseFloat(parts[0]), b = parseFloat(parts[1]);
+      if (!isNaN(a) && !isNaN(b)) {
+        e.preventDefault();
+        document.getElementById('inputLat').value = a;
+        document.getElementById('inputLng').value = b;
+        showToast('📋 วางพิกัดแล้ว กด ปัก ได้เลย');
+      }
+    }
+  });
 
   window.addEventListener('load', startGPS);
 </script>
