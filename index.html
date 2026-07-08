@@ -20,6 +20,11 @@
       --green:   #34d399; --orange:  #fb923c; --red: #f87171;
       --text:    #f1f5f9; --muted:   #64748b; --muted2: #94a3b8;
     }
+    body.light {
+      --bg:      #f4f6fb; --surface: #ffffff; --surface2: #f0f2f8;
+      --border:  rgba(0,0,0,0.08);
+      --text:    #1a1d27; --muted:   #8892a4; --muted2: #5a6480;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
@@ -29,6 +34,7 @@
     .header-title { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
     .header-sub   { font-size: 10px; color: var(--muted); }
     .order-badge  { margin-left: auto; background: rgba(79,142,247,0.15); border: 1px solid rgba(79,142,247,0.3); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: var(--accent); white-space: nowrap; flex-shrink: 0; }
+    .btn-theme { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0; transition: background 0.2s; }
 
     /* Driver Card */
     .driver-card { background: var(--surface); border-bottom: 1px solid var(--border); }
@@ -146,7 +152,7 @@
     .pac-item-query { color: var(--accent) !important; }
   </style>
 </head>
-<body>
+<body class="light">
 
 <!-- Header -->
 <div class="header">
@@ -156,6 +162,7 @@
     <div class="header-sub">Driver App</div>
   </div>
   <div class="order-badge" id="orderBadge">—</div>
+  <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="สลับโหมด">☀️</button>
 </div>
 
 <!-- Driver Info Card -->
@@ -624,7 +631,20 @@
     showToast('🆕 เริ่ม Order ใหม่');
   }
 
-  window.addEventListener('load', () => { startGPS(); checkResume(); });
+  window.addEventListener('load', () => {
+    startGPS(); checkResume();
+    const saved = localStorage.getItem('pod_theme') || 'light';
+    document.body.className = saved;
+    document.getElementById('btnTheme').textContent = saved === 'light' ? '🌙' : '☀️';
+  });
+
+  function toggleTheme() {
+    const isLight = document.body.classList.contains('light');
+    const next = isLight ? '' : 'light';
+    document.body.className = next;
+    document.getElementById('btnTheme').textContent = isLight ? '☀️' : '🌙';
+    localStorage.setItem('pod_theme', next || 'dark');
+  }
 </script>
 </body>
 </html>
