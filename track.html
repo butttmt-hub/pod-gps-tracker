@@ -244,6 +244,12 @@
       const data = snap.val();
       if (!data) { showError('❌', 'ไม่พบข้อมูลการส่ง', `ไม่พบ Order: ${orderId}`, 'กรุณาตรวจสอบ Link ที่ได้รับ'); return; }
 
+      // เช็ค Cancelled
+      if (data.status === 'cancelled') {
+        showError('🚫', 'Order ถูกยกเลิก', 'การส่งสินค้านี้ถูกยกเลิกโดยผู้จัดส่ง', 'กรุณาติดต่อเจ้าหน้าที่เพื่อข้อมูลเพิ่มเติม');
+        return;
+      }
+
       // เช็ค Expire
       if (data.expireAt && Date.now() > data.expireAt) {
         const expiredAt = new Date(data.expireAt).toLocaleString('th-TH');
