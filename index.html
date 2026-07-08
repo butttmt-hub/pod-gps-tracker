@@ -233,6 +233,20 @@
   <div class="card"><div class="card-label">📡 สถานะ</div><div class="card-value sm" id="valStatus">รอ GPS...</div></div>
 </div>
 
+<!-- Resume Dialog -->
+<div id="resumeDialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;padding:20px">
+  <div style="background:white;border-radius:20px;padding:24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="font-size:32px;text-align:center;margin-bottom:10px">📦</div>
+    <div style="font-size:15px;font-weight:800;text-align:center;margin-bottom:6px">มี Order ค้างอยู่</div>
+    <div style="font-size:12px;color:#888;text-align:center;margin-bottom:14px">พบ Order ที่ยังไม่เสร็จ อยากกลับไปต่อมั้ย?</div>
+    <div id="resumeInfo" style="background:#e3f2fd;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1565c0;font-weight:700"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="discardResume()" style="flex:1;padding:11px;border:1.5px solid #e0e0e0;border-radius:12px;background:white;font-size:12px;font-weight:700;color:#888;cursor:pointer">เริ่มใหม่</button>
+      <button onclick="doResume()"      style="flex:1;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:white;font-size:12px;font-weight:700;cursor:pointer">กลับ Order เดิม ✓</button>
+    </div>
+  </div>
+</div>
+
 <!-- Action Area -->
 <div class="action-area">
   <button class="btn btn-blue" id="btnStart" onclick="startOrder()">🚀 เริ่มการส่ง / สร้าง Order</button>
@@ -503,6 +517,7 @@
     });
 
     broadcastNow();
+    saveOrderToStorage();
     document.getElementById('driverCardBody').classList.add('hidden');
     document.getElementById('driverToggleIcon').textContent = '▶';
     document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
@@ -568,7 +583,11 @@
     });
     renderLog();
     showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
-    if (orderActive) { db.ref(`orders/${orderId}/status`).set('arrived'); stopBroadcast(); }
+    if (orderActive) {
+      db.ref(`orders/${orderId}/status`).set('arrived');
+      stopBroadcast();
+      localStorage.removeItem(RESUME_KEY); // ล้าง Order เมื่อส่งเสร็จ
+    }
     if (map) new google.maps.Marker({
       position:{lat, lng}, map,
       label:{text:String(checkInCount), color:'white', fontSize:'11px', fontWeight:'bold'},
@@ -626,7 +645,90 @@
     }
   });
 
-  window.addEventListener('load', startGPS);
+  // ─── Resume Order ─────────────────────────────────────
+  const RESUME_KEY = 'pod_active_order';
+
+  function saveOrderToStorage() {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({
+      orderId,
+      driverName:  document.getElementById('driverName').value,
+      driverPhone: document.getElementById('driverPhone').value,
+      driverPlate: document.getElementById('driverPlate').value,
+      destName:    destPlace ? (destPlace.name || destPlace.formatted_address) : null,
+      destLat:     destPlace ? destPlace.geometry.location.lat() : null,
+      destLng:     destPlace ? destPlace.geometry.location.lng() : null,
+      customerLink,
+      savedAt: Date.now()
+    }));
+  }
+
+  function checkResume() {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw);
+      // ถ้าบันทึกไว้นานเกิน 24 ชั่วโมง ให้ล้างทิ้ง
+      if (Date.now() - saved.savedAt > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(RESUME_KEY); return;
+      }
+      // แสดง dialog
+      document.getElementById('resumeInfo').innerHTML =
+        `📦 <b>${saved.orderId}</b><br>🚙 ${saved.driverName||'—'} · ${saved.driverPlate||'—'}<br>📍 ${saved.destName||'—'}`;
+      document.getElementById('resumeDialog').style.display = 'flex';
+    } catch(e) { localStorage.removeItem(RESUME_KEY); }
+  }
+
+  function doResume() {
+    const saved = JSON.parse(localStorage.getItem(RESUME_KEY));
+    document.getElementById('resumeDialog').style.display = 'none';
+
+    // คืนค่า Driver Info
+    document.getElementById('driverName').value  = saved.driverName  || '';
+    document.getElementById('driverPhone').value = saved.driverPhone || '';
+    document.getElementById('driverPlate').value = saved.driverPlate || '';
+
+    // คืนค่า Order ID
+    orderId = saved.orderId;
+    document.getElementById('orderBadge').textContent = orderId;
+
+    // คืนค่า Customer Link
+    customerLink = saved.customerLink || '';
+    if (customerLink) {
+      document.getElementById('linkUrl').textContent = customerLink;
+      document.getElementById('linkBox').style.display = 'block';
+      document.getElementById('btnLink').disabled = false;
+    }
+
+    // คืนค่า Destination จาก Lat/Lng
+    if (saved.destLat && saved.destLng) {
+      const loc = new google.maps.LatLng(saved.destLat, saved.destLng);
+      destPlace = {
+        geometry: { location: loc },
+        name: saved.destName || '',
+        formatted_address: saved.destName || ''
+      };
+      document.getElementById('destInput').value = saved.destName || '';
+      document.getElementById('btnClearDest').style.display = 'block';
+      document.getElementById('btnGMaps').disabled = false;
+      if (map) { placeDestMarker(loc); if (currentPos) calcRoute(); }
+    }
+
+    // Resume order active state
+    orderActive = true;
+    document.getElementById('driverCardBody').classList.add('hidden');
+    document.getElementById('driverToggleIcon').textContent = '▶';
+    document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+    document.getElementById('btnStart').disabled = true;
+    showToast(`🔄 กลับ Order ${orderId} แล้ว!`);
+  }
+
+  function discardResume() {
+    localStorage.removeItem(RESUME_KEY);
+    document.getElementById('resumeDialog').style.display = 'none';
+    showToast('🆕 เริ่ม Order ใหม่');
+  }
+
+  window.addEventListener('load', () => { startGPS(); checkResume(); });
 </script>
 </body>
 </html>
