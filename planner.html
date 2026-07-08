@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planner Dashboard — POD GPS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #22263a;
+      --border:   rgba(255,255,255,0.07);
+      --accent:   #4f8ef7;
+      --accent2:  #7c6cf7;
+      --green:    #34d399;
+      --orange:   #fb923c;
+      --red:      #f87171;
+      --text:     #f1f5f9;
+      --muted:    #64748b;
+      --muted2:   #94a3b8;
+    }
+    body.light {
+      --bg:       #f4f6fb;
+      --surface:  #ffffff;
+      --surface2: #f0f2f8;
+      --border:   rgba(0,0,0,0.08);
+      --text:     #1a1d27;
+      --muted:    #8892a4;
+      --muted2:   #5a6480;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Auth Gate ─────────────────────────────────── */
+    .auth-gate {
+      position: fixed; inset: 0; z-index: 999;
+      background: radial-gradient(ellipse at 30% 40%, #1e2a6e 0%, #0f1117 60%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-glow {
+      position: absolute; width: 480px; height: 480px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,142,247,0.15) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none;
+    }
+    .auth-box {
+      position: relative; z-index: 1;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 40px 36px; width: 360px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(79,142,247,0.1);
+      text-align: center;
+    }
+    .auth-logo-wrap {
+      width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center; font-size: 28px;
+      box-shadow: 0 8px 24px rgba(79,142,247,0.35);
+    }
+    .auth-title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .auth-sub   { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .auth-label { font-size: 11px; font-weight: 600; color: var(--muted2); text-align: left; display: block; margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .auth-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 13px 16px; font-size: 15px; color: var(--text);
+      outline: none; letter-spacing: 4px; text-align: center; transition: border-color 0.2s;
+      font-family: 'Inter', sans-serif; margin-bottom: 14px;
+    }
+    .auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+    .auth-btn {
+      width: 100%; padding: 13px; border: none; border-radius: 12px; font-size: 14px;
+      font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white; box-shadow: 0 4px 20px rgba(79,142,247,0.4);
+      transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.3px;
+    }
+    .auth-btn:hover { opacity: 0.9; } .auth-btn:active { transform: scale(0.98); }
+    .auth-err { font-size: 12px; color: var(--red); margin-top: 10px; display: none; }
+
+    /* ── Header ────────────────────────────────────── */
+    .header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 60px; display: none; align-items: center; gap: 14px;
+      position: sticky; top: 0; z-index: 100; backdrop-filter: blur(12px);
+    }
+    .header-logo {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .header-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+    .header-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25);
+      border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; color: var(--green);
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .btn-theme {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted2);
+      border-radius: 8px; padding: 6px 12px; font-size: 15px; cursor: pointer;
+      font-family: 'Inter', sans-serif; transition: all 0.2s; line-height: 1;
+    }
+    .btn-theme:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .btn-logout {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted2);
+      border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .btn-logout:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+    /* ── Summary Bar ───────────────────────────────── */
+    .summary-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      padding: 20px 24px 0; display: none;
+    }
+    .sum-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 18px 20px; position: relative; overflow: hidden;
+    }
+    .sum-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .sum-card.all::before    { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .sum-card.active::before { background: linear-gradient(90deg, var(--orange), #f59e0b); }
+    .sum-card.done::before   { background: linear-gradient(90deg, var(--green), #6ee7b7); }
+    .sum-card.exp::before    { background: linear-gradient(90deg, var(--red), #fca5a5); }
+    .sum-num   { font-size: 32px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+    .sum-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sum-icon  { position: absolute; top: 16px; right: 16px; font-size: 22px; opacity: 0.25; }
+    .c-accent { color: var(--accent); } .c-orange { color: var(--orange); }
+    .c-green  { color: var(--green);  } .c-red    { color: var(--red);    }
+
+    /* ── Filter Bar ────────────────────────────────── */
+    .filter-bar {
+      display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 16px 24px 0;
+    }
+    .filter-btn {
+      padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface); font-size: 12px; font-weight: 600; color: var(--muted);
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .filter-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .filter-btn.active { background: rgba(79,142,247,0.15); border-color: rgba(79,142,247,0.4); color: var(--accent); }
+    .search-wrap { margin-left: auto; position: relative; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; }
+    .search-input {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      border-radius: 20px; padding: 7px 14px 7px 32px; font-size: 12px; outline: none;
+      width: 200px; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .search-input:focus { border-color: rgba(79,142,247,0.4); background: var(--surface2); }
+    .search-input::placeholder { color: var(--muted); }
+
+    /* ── Order List ────────────────────────────────── */
+    .order-list { padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 8px; }
+    .order-empty { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 14px; }
+    .order-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+    /* ── Order Card ────────────────────────────────── */
+    .order-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .order-card:hover { border-color: rgba(255,255,255,0.12); box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .order-card.delivering  { border-left: 3px solid var(--orange); }
+    .order-card.arrived     { border-left: 3px solid var(--green);  }
+    .order-card.expired     { border-left: 3px solid var(--red); opacity: 0.6; }
+    .order-card.cancelled   { border-left: 3px solid var(--muted); opacity: 0.5; }
+
+    .order-header {
+      padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none;
+    }
+    .status-pill {
+      padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+      white-space: nowrap; letter-spacing: 0.3px;
+    }
+    .pill-delivering  { background: rgba(251,146,60,0.15);  color: var(--orange); border: 1px solid rgba(251,146,60,0.3);  }
+    .pill-arrived     { background: rgba(52,211,153,0.15);  color: var(--green);  border: 1px solid rgba(52,211,153,0.3);  }
+    .pill-expired     { background: rgba(248,113,113,0.15); color: var(--red);    border: 1px solid rgba(248,113,113,0.3); }
+    .pill-cancelled   { background: rgba(100,116,139,0.15); color: var(--muted);  border: 1px solid rgba(100,116,139,0.3); }
+    .order-id-text { font-size: 13px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+    .order-time-text { margin-left: auto; font-size: 11px; color: var(--muted); }
+    .chevron { font-size: 11px; color: var(--muted); transition: transform 0.25s; margin-left: 6px; }
+    .chevron.open { transform: rotate(180deg); }
+
+    /* ── Card Body ─────────────────────────────────── */
+    .order-body { display: none; padding: 0 18px 18px; }
+    .order-body.show { display: block; }
+    .divider { height: 1px; background: var(--border); margin-bottom: 16px; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+    .info-cell { background: var(--surface2); border-radius: 10px; padding: 10px 12px; }
+    .info-cell-label { font-size: 9px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+    .info-cell-val   { font-size: 13px; font-weight: 700; color: var(--text); }
+
+    .dest-cell { background: var(--surface2); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+
+    .eta-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
+    .eta-cell {
+      background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.15);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .eta-cell-label { font-size: 9px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .eta-cell-val   { font-size: 13px; font-weight: 800; color: var(--text); }
+
+    .expire-text { font-size: 10px; color: var(--muted); margin-bottom: 12px; }
+
+    /* ── Action Buttons ────────────────────────────── */
+    .action-row { display: flex; gap: 8px; }
+    .act-btn {
+      flex: 1; padding: 9px 8px; border: none; border-radius: 10px; font-size: 11px;
+      font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.2px;
+    }
+    .act-btn:hover { opacity: 0.85; } .act-btn:active { transform: scale(0.97); }
+    .act-btn:disabled { opacity: 0.3 !important; cursor: not-allowed; }
+    .btn-copy   { background: var(--surface2); color: var(--muted2); border: 1px solid var(--border); }
+    .btn-track  { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+    .btn-gmaps  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+    .btn-cancel { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
+    .btn-cancel:hover { background: rgba(248,113,113,0.2) !important; }
+
+    /* Confirm Dialog */
+    .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .dialog-overlay.show { display: flex; }
+    .dialog-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; width: 320px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .dialog-icon  { font-size: 36px; margin-bottom: 12px; }
+    .dialog-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+    .dialog-sub   { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .dialog-id    { font-size: 12px; font-weight: 700; color: var(--red); background: rgba(248,113,113,0.1); border-radius: 8px; padding: 6px 12px; margin-bottom: 20px; display: inline-block; }
+    .dialog-btns  { display: flex; gap: 10px; }
+    .dialog-btn   { flex: 1; padding: 11px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; }
+    .dialog-btn-cancel  { background: var(--surface2); color: var(--muted2); border: 1px solid var(--border); }
+    .dialog-btn-confirm { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+
+    /* ── Footer ────────────────────────────────────── */
+    .footer { text-align: center; font-size: 11px; color: var(--muted); padding: 0 24px 32px; }
+
+    /* ── Toast ─────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: rgba(30,35,50,0.95); backdrop-filter: blur(12px);
+      border: 1px solid var(--border); color: var(--text);
+      padding: 10px 22px; border-radius: 30px; font-size: 12px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 9999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 600px) {
+      .summary-bar { grid-template-columns: repeat(2,1fr); padding: 14px 14px 0; }
+      .filter-bar  { padding: 12px 14px 0; }
+      .order-list  { padding: 12px 14px 24px; }
+      .header      { padding: 0 14px; }
+      .info-grid   { grid-template-columns: repeat(2,1fr); }
+      .eta-grid    { grid-template-columns: repeat(2,1fr); }
+      .search-input { width: 140px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div class="auth-gate" id="authGate">
+  <div class="auth-glow"></div>
+  <div class="auth-box">
+    <div class="auth-logo-wrap">🗂️</div>
+    <div class="auth-title">Planner Dashboard</div>
+    <div class="auth-sub">ระบบติดตาม Order · Real-time</div>
+    <label class="auth-label">รหัสผ่าน</label>
+    <input class="auth-input" id="authInput" type="password" placeholder="••••••••"
+      onkeydown="if(event.key==='Enter') checkAuth()" autofocus />
+    <button class="auth-btn" onclick="checkAuth()">เข้าสู่ระบบ →</button>
+    <div class="auth-err" id="authErr">❌ รหัสผ่านไม่ถูกต้อง</div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header" id="mainHeader">
+  <div class="header-logo">🗂️</div>
+  <div>
+    <div class="header-title">Planner Dashboard</div>
+    <div class="header-sub">POD GPS Tracker · ติดตาม Order</div>
+  </div>
+  <div class="header-right">
+    <div class="live-pill" id="livePill" style="display:none">
+      <div class="live-dot"></div>Live
+    </div>
+    <button class="btn-theme" id="themeBtn" onclick="toggleTheme()" title="สลับโหมด">🌙</button>
+    <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="summary-bar" id="summaryBar">
+  <div class="sum-card all">
+    <div class="sum-icon">📦</div>
+    <div class="sum-num c-accent" id="sumAll">0</div>
+    <div class="sum-label">Order ทั้งหมด</div>
+  </div>
+  <div class="sum-card active">
+    <div class="sum-icon">🚚</div>
+    <div class="sum-num c-orange" id="sumActive">0</div>
+    <div class="sum-label">กำลังส่ง</div>
+  </div>
+  <div class="sum-card done">
+    <div class="sum-icon">✅</div>
+    <div class="sum-num c-green" id="sumDone">0</div>
+    <div class="sum-label">ส่งแล้ว</div>
+  </div>
+  <div class="sum-card exp">
+    <div class="sum-icon">⏰</div>
+    <div class="sum-num c-red" id="sumExpired">0</div>
+    <div class="sum-label">หมดอายุ</div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar" id="filterBar">
+  <button class="filter-btn active" onclick="setFilter('all',this)">ทั้งหมด</button>
+  <button class="filter-btn" onclick="setFilter('delivering',this)">🚚 กำลังส่ง</button>
+  <button class="filter-btn" onclick="setFilter('arrived',this)">✅ ส่งแล้ว</button>
+  <button class="filter-btn" onclick="setFilter('expired',this)">⏰ หมดอายุ</button>
+  <button class="filter-btn" onclick="setFilter('cancelled',this)">🚫 ยกเลิก</button>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="searchInput" placeholder="Order ID / ชื่อ / ทะเบียน..." oninput="renderOrders()" />
+  </div>
+</div>
+
+<!-- Order List -->
+<div class="order-list" id="orderList">
+  <div class="order-empty">
+    <div class="order-empty-icon">📭</div>
+    <div>กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<!-- Cancel Dialog -->
+<div class="dialog-overlay" id="cancelDialog">
+  <div class="dialog-box">
+    <div class="dialog-icon">🗑️</div>
+    <div class="dialog-title">ยกเลิก Order นี้?</div>
+    <div class="dialog-sub">ลูกค้าจะเห็นข้อความ "Order ถูกยกเลิก" และไม่สามารถติดตามได้อีก</div>
+    <div class="dialog-id" id="cancelOrderId">—</div>
+    <div class="dialog-btns">
+      <button class="dialog-btn dialog-btn-cancel"  onclick="closeDialog()">← ยังไม่ยกเลิก</button>
+      <button class="dialog-btn dialog-btn-confirm" onclick="confirmCancel()">ยืนยัน ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer" id="footer"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const PLANNER_PASSWORD = 'pod1234';
+  const BASE_URL = window.location.href.replace(/[^\/]*(\?.*)?$/, '');
+
+  // ── Theme ──────────────────────────────────────────
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    document.getElementById('themeBtn').textContent = isLight ? '🌙' : '☀️';
+    localStorage.setItem('planner_theme', isLight ? 'light' : 'dark');
+  }
+  // restore saved theme
+  if (localStorage.getItem('planner_theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('themeBtn');
+      if (btn) btn.textContent = '☀️';
+    });
+  }
+
+  // ── Auth ───────────────────────────────────────────
+  function checkAuth() {
+    if (document.getElementById('authInput').value === PLANNER_PASSWORD) {
+      sessionStorage.setItem('planner_auth','1');
+      document.getElementById('authGate').style.display = 'none';
+      showDashboard();
+    } else {
+      document.getElementById('authErr').style.display = 'block';
+      document.getElementById('authInput').value = '';
+      document.getElementById('authInput').focus();
+    }
+  }
+  function logout() { sessionStorage.removeItem('planner_auth'); location.reload(); }
+
+  // ── Firebase ───────────────────────────────────────
+  firebase.initializeApp({
+    apiKey: "AIzaSyBwNfPT-jBpz8p6iNNM6_l6yHnsw4xPGpo",
+    authDomain: "statustracking-mockup.firebaseapp.com",
+    databaseURL: "https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "statustracking-mockup",
+    storageBucket: "statustracking-mockup.firebasestorage.app",
+    messagingSenderId: "423417745590",
+    appId: "1:423417745590:web:2a90c40b718fce6d61d617"
+  });
+  const db = firebase.database();
+
+  let allOrders = {}, currentFilter = 'all';
+
+  window.addEventListener('load', () => {
+    if (sessionStorage.getItem('planner_auth') === '1') {
+      document.getElementById('authGate').style.display = 'none';
+      showDashboard();
+    }
+  });
+
+  function showDashboard() {
+    document.getElementById('mainHeader').style.display = 'flex';
+    document.getElementById('summaryBar').style.display = 'grid';
+    document.getElementById('filterBar').style.display  = 'flex';
+
+    db.ref('.info/connected').on('value', s => {
+      document.getElementById('livePill').style.display = s.val() ? 'flex' : 'none';
+    });
+
+    db.ref('orders').on('value', snap => {
+      allOrders = snap.val() || {};
+      renderOrders();
+      document.getElementById('footer').textContent =
+        'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+    });
+  }
+
+  function setFilter(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderOrders();
+  }
+
+  function getStatus(o) {
+    if (o.status === 'cancelled') return 'cancelled';
+    if (o.expireAt && Date.now() > o.expireAt) return 'expired';
+    return o.status || 'delivering';
+  }
+
+  function renderOrders() {
+    const q = (document.getElementById('searchInput').value || '').toLowerCase();
+    const entries = Object.entries(allOrders).reverse();
+
+    let cAll=0, cActive=0, cDone=0, cExp=0;
+    entries.forEach(([,o]) => {
+      const s = getStatus(o); cAll++;
+      if (s==='delivering') cActive++;
+      else if (s==='arrived') cDone++;
+      else if (s==='cancelled') {} // ไม่นับใน summary หลัก
+      else cExp++;
+    });
+    document.getElementById('sumAll').textContent     = cAll;
+    document.getElementById('sumActive').textContent  = cActive;
+    document.getElementById('sumDone').textContent    = cDone;
+    document.getElementById('sumExpired').textContent = cExp;
+
+    const filtered = entries.filter(([id,o]) => {
+      const s = getStatus(o);
+      if (currentFilter !== 'all' && s !== currentFilter) return false;
+      if (q) {
+        const hay = [id, o.driver?.name, o.driver?.phone, o.driver?.plate,
+                     o.customer?.name, o.customer?.address].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const el = document.getElementById('orderList');
+    if (!filtered.length) {
+      el.innerHTML = `<div class="order-empty"><div class="order-empty-icon">📭</div><div>ไม่มี Order ที่ตรงกับเงื่อนไข</div></div>`;
+      return;
+    }
+    el.innerHTML = filtered.map(([id,o]) => cardHTML(id,o)).join('');
+  }
+
+  function hl(text, q) {
+    if (!q || !text) return text || '—';
+    const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+    return String(text).replace(re, '<mark style="background:rgba(79,142,247,0.3);color:inherit;border-radius:3px;padding:0 2px">$1</mark>');
+  }
+
+  function cardHTML(id, o) {
+    const q  = (document.getElementById('searchInput').value || '').toLowerCase();
+    const st = getStatus(o);
+    const pillCls  = st==='arrived'?'pill-arrived':st==='expired'?'pill-expired':st==='cancelled'?'pill-cancelled':'pill-delivering';
+    const pillText = st==='arrived'?'✅ ส่งแล้ว':st==='expired'?'⏰ หมดอายุ':st==='cancelled'?'🚫 ยกเลิกแล้ว':'🚚 กำลังส่ง';
+    const created  = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const expires  = o.expireAt  ? new Date(o.expireAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const link = `${BASE_URL}track.html?order=${id}`;
+
+    return `
+    <div class="order-card ${st}" id="card_${id}">
+      <div class="order-header" onclick="toggle('${id}')">
+        <span class="status-pill ${pillCls}">${pillText}</span>
+        <span class="order-id-text">${hl(id, q)}</span>
+        <span class="order-time-text">${created}</span>
+        <span class="chevron" id="chev_${id}">▾</span>
+      </div>
+      <div class="order-body" id="body_${id}">
+        <div class="divider"></div>
+
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="info-cell-label">👤 คนขับ</div>
+            <div class="info-cell-val">${hl(o.driver?.name, q)}</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">📞 เบอร์โทร</div>
+            <div class="info-cell-val"><a href="tel:${o.driver?.phone||''}" style="color:inherit;text-decoration:none">${hl(o.driver?.phone, q)}</a></div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">🚙 ทะเบียน</div>
+            <div class="info-cell-val">${hl(o.driver?.plate, q)}</div>
+          </div>
+        </div>
+
+        <div class="dest-cell">
+          <div class="info-cell-label">📍 ปลายทาง</div>
+          <div class="info-cell-val" style="margin-top:5px;font-size:13px">${o.customer?.name||o.customer?.address||'—'}</div>
+        </div>
+
+        ${o.eta ? `
+        <div class="eta-grid">
+          <div class="eta-cell">
+            <div class="eta-cell-label">⏱️ ETA</div>
+            <div class="eta-cell-val">${o.eta}</div>
+          </div>
+          <div class="eta-cell">
+            <div class="eta-cell-label">📏 ระยะทาง</div>
+            <div class="eta-cell-val">${o.etaDistance||'—'}</div>
+          </div>
+          ${o.etaArrival?`
+          <div class="eta-cell">
+            <div class="eta-cell-label">🕐 ถึงประมาณ</div>
+            <div class="eta-cell-val">${o.etaArrival}</div>
+          </div>`:''}
+        </div>` : ''}
+
+        <div class="expire-text">⏰ Link หมดอายุ: ${expires}</div>
+
+        <div class="action-row">
+          <button class="act-btn btn-copy"   onclick="copyLink('${link}')">📋 Copy Link</button>
+          <button class="act-btn btn-track"  onclick="window.open('${link}','_blank')" ${st==='expired'||st==='cancelled'?'disabled':''}>👁️ ดู Track</button>
+          ${o.customer?.lat?`<button class="act-btn btn-gmaps" onclick="window.open('https://www.google.com/maps?q=${o.customer.lat},${o.customer.lng}','_blank')">🗺️ Maps</button>`:''}
+          ${st!=='cancelled'?`<button class="act-btn btn-cancel" onclick="openCancelDialog('${id}')">🚫 ยกเลิก</button>`:'<button class="act-btn btn-cancel" disabled>🚫 ยกเลิกแล้ว</button>'}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function toggle(id) {
+    document.getElementById('body_'+id).classList.toggle('show');
+    document.getElementById('chev_'+id).classList.toggle('open');
+  }
+
+  // ── Cancel Order ──────────────────────────────────
+  let pendingCancelId = null;
+  function openCancelDialog(id) {
+    pendingCancelId = id;
+    document.getElementById('cancelOrderId').textContent = id;
+    document.getElementById('cancelDialog').classList.add('show');
+  }
+  function closeDialog() {
+    pendingCancelId = null;
+    document.getElementById('cancelDialog').classList.remove('show');
+  }
+  function confirmCancel() {
+    if (!pendingCancelId) return;
+    db.ref(`orders/${pendingCancelId}/status`).set('cancelled').then(() => {
+      showToast(`🚫 ยกเลิก ${pendingCancelId} แล้ว`);
+      closeDialog();
+    });
+  }
+  // ปิด dialog เมื่อกด overlay
+  document.getElementById('cancelDialog').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeDialog();
+  });
+
+  function copyLink(url) {
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(()=>showToast('📋 คัดลอก Link แล้ว!'));
+    else prompt('Copy Link:', url);
+  }
+
+  function showToast(msg) {
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+  }
+</script>
+</body>
+</html>
