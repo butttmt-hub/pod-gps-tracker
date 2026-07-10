@@ -8,6 +8,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4" async defer></script>
 
   <style>
     :root {
@@ -242,6 +243,76 @@
     .dialog-btn-cancel  { background: var(--surface2); color: var(--muted2); border: 1px solid var(--border); }
     .dialog-btn-confirm { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
 
+    /* ── Map Modal ─────────────────────────────────── */
+    .map-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      z-index: 600; display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); padding: 16px;
+    }
+    .map-modal-overlay.show { display: flex; }
+    .map-modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; width: 100%; max-width: 560px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+      overflow: hidden; display: flex; flex-direction: column;
+      max-height: 90vh;
+    }
+    .map-modal-head {
+      padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .map-modal-icon {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .map-modal-title { font-size: 13px; font-weight: 800; }
+    .map-modal-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .map-modal-close {
+      margin-left: auto; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; width: 30px; height: 30px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+      color: var(--muted); transition: color 0.2s; flex-shrink: 0;
+    }
+    .map-modal-close:hover { color: var(--text); }
+    .map-modal-driver {
+      display: flex; gap: 6px; padding: 10px 18px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .modal-chip {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted2);
+    }
+    #modalMap { height: 320px; background: var(--surface2); flex-shrink: 0; }
+    .map-modal-eta {
+      display: none; padding: 10px 18px; flex-shrink: 0;
+      background: rgba(79,142,247,0.08); border-top: 1px solid rgba(79,142,247,0.15);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .modal-eta-time { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .modal-eta-arr  { font-size: 11px; color: var(--muted2); margin-top: 2px; }
+    .modal-eta-dist { font-size: 14px; font-weight: 700; color: var(--text); text-align: right; }
+    .modal-eta-unit { font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
+    .map-modal-loc {
+      padding: 8px 18px 12px; font-size: 11px; color: var(--muted);
+      border-top: 1px solid var(--border); flex-shrink: 0; display: flex; gap: 16px;
+    }
+    .modal-live-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); margin-right: 5px; animation: pulse 1.5s infinite;
+      vertical-align: middle;
+    }
+    .map-no-loc {
+      height: 320px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      color: var(--muted); font-size: 13px; background: var(--surface2);
+    }
+
+    /* ── btn-map ────────────────────────────────────── */
+    .btn-map { background: rgba(124,108,247,0.12); color: var(--accent2); border: 1px solid rgba(124,108,247,0.25); }
+    .btn-map:hover { background: rgba(124,108,247,0.22) !important; }
+
     /* ── Footer ────────────────────────────────────── */
     .footer { text-align: center; font-size: 11px; color: var(--muted); padding: 0 24px 32px; }
 
@@ -355,6 +426,48 @@
     <div class="dialog-btns">
       <button class="dialog-btn dialog-btn-cancel"  onclick="closeDialog()">← ยังไม่ยกเลิก</button>
       <button class="dialog-btn dialog-btn-confirm" onclick="confirmCancel()">ยืนยัน ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Map Modal -->
+<div class="map-modal-overlay" id="mapModal" onclick="handleMapOverlayClick(event)">
+  <div class="map-modal-box">
+    <div class="map-modal-head">
+      <div class="map-modal-icon">📍</div>
+      <div>
+        <div class="map-modal-title" id="modalOrderId">—</div>
+        <div class="map-modal-sub"   id="modalStatus">กำลังโหลด...</div>
+      </div>
+      <button class="map-modal-close" onclick="closeMapModal()">✕</button>
+    </div>
+    <div class="map-modal-driver">
+      <div class="modal-chip">👤 <span id="modalDriverName">—</span></div>
+      <div class="modal-chip">📞 <span id="modalDriverPhone">—</span></div>
+      <div class="modal-chip">🚙 <span id="modalDriverPlate">—</span></div>
+    </div>
+    <div id="modalMapArea">
+      <div class="map-no-loc" id="modalNoLoc">
+        <span style="font-size:32px;opacity:0.4">📡</span>
+        <span>รอรับตำแหน่งจากคนขับ...</span>
+      </div>
+      <div id="modalMap" style="display:none"></div>
+    </div>
+    <div class="map-modal-eta" id="modalEta" style="display:none">
+      <span style="font-size:20px">🚗</span>
+      <div style="flex:1">
+        <div class="modal-eta-time" id="modalEtaTime">—</div>
+        <div class="modal-eta-arr"  id="modalEtaArr">คำนวณเส้นทาง...</div>
+      </div>
+      <div>
+        <div class="modal-eta-dist" id="modalEtaDist">—</div>
+        <div class="modal-eta-unit">ระยะทาง</div>
+      </div>
+    </div>
+    <div class="map-modal-loc" id="modalLocBar" style="display:none">
+      <span><span class="modal-live-dot"></span>อัพเดต real-time</span>
+      <span id="modalCoords" style="font-family:monospace">—</span>
+      <span id="modalUpdatedAt">—</span>
     </div>
   </div>
 </div>
@@ -548,9 +661,9 @@
         <div class="expire-text">⏰ Link หมดอายุ: ${expires}</div>
 
         <div class="action-row">
-          <button class="act-btn btn-copy"   onclick="copyLink('${link}')">📋 Copy Link</button>
-          <button class="act-btn btn-track"  onclick="window.open('${link}','_blank')" ${st==='expired'||st==='cancelled'?'disabled':''}>👁️ ดู Track</button>
-          ${o.customer?.lat?`<button class="act-btn btn-gmaps" onclick="window.open('https://www.google.com/maps?q=${o.customer.lat},${o.customer.lng}','_blank')">🗺️ Maps</button>`:''}
+          <button class="act-btn btn-map"    onclick="openMapModal('${id}')">📍 ดูตำแหน่ง</button>
+          <button class="act-btn btn-copy"   onclick="copyLink('${link}')">📋 Copy</button>
+          <button class="act-btn btn-track"  onclick="window.open('${link}','_blank')" ${st==='expired'||st==='cancelled'?'disabled':''}>👁️ Track</button>
           ${st!=='cancelled'?`<button class="act-btn btn-cancel" onclick="openCancelDialog('${id}')">🚫 ยกเลิก</button>`:'<button class="act-btn btn-cancel" disabled>🚫 ยกเลิกแล้ว</button>'}
         </div>
       </div>
@@ -594,6 +707,168 @@
     const t=document.getElementById('toast');
     t.textContent=msg; t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'),2500);
+  }
+
+  // ── Map Modal ─────────────────────────────────────
+  let modalMap = null, modalDriverMarker = null, modalCustomerMarker = null;
+  let modalDirService = null, modalDirRenderer = null;
+  let modalLocationRef = null, modalLastRoute = 0;
+  let currentModalOrderId = null;
+
+  function openMapModal(id) {
+    currentModalOrderId = id;
+    const o = allOrders[id];
+    if (!o) return;
+
+    // Header info
+    document.getElementById('modalOrderId').textContent   = id;
+    document.getElementById('modalDriverName').textContent  = o.driver?.name  || '—';
+    document.getElementById('modalDriverPhone').textContent = o.driver?.phone || '—';
+    document.getElementById('modalDriverPlate').textContent = o.driver?.plate || '—';
+
+    const st = getStatus(o);
+    const stMap = { delivering:'🚚 กำลังส่ง', arrived:'✅ ส่งแล้ว', expired:'⏰ หมดอายุ', cancelled:'🚫 ยกเลิก' };
+    document.getElementById('modalStatus').textContent = stMap[st] || st;
+
+    // ETA from Firebase
+    if (o.eta) {
+      document.getElementById('modalEtaTime').textContent = o.eta;
+      document.getElementById('modalEtaDist').textContent = o.etaDistance || '—';
+      document.getElementById('modalEtaArr').textContent  = o.etaArrival ? 'ถึงประมาณ '+o.etaArrival : 'คำนวณเส้นทาง...';
+      document.getElementById('modalEta').style.display   = 'flex';
+    } else {
+      document.getElementById('modalEta').style.display = 'none';
+    }
+
+    document.getElementById('mapModal').classList.add('show');
+
+    // Init map once
+    if (!modalMap && typeof google !== 'undefined' && google.maps) {
+      initModalMap();
+    }
+
+    // Destination marker
+    if (modalMap && o.customer?.lat) {
+      const custPos = { lat: o.customer.lat, lng: o.customer.lng };
+      if (!modalCustomerMarker) {
+        modalCustomerMarker = new google.maps.Marker({
+          position: custPos, map: modalMap, zIndex: 20,
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          animation: google.maps.Animation.DROP
+        });
+      } else {
+        modalCustomerMarker.setPosition(custPos);
+        modalCustomerMarker.setMap(modalMap);
+      }
+    }
+
+    // Real-time location listener
+    if (modalLocationRef) modalLocationRef.off();
+    modalLocationRef = db.ref('orders/' + id + '/location');
+    modalLocationRef.on('value', snap => {
+      if (!snap.exists()) return;
+      const loc = snap.val();
+      updateModalDriver(loc, o);
+    });
+  }
+
+  function initModalMap() {
+    modalMap = new google.maps.Map(document.getElementById('modalMap'), {
+      zoom: 13, center: { lat: 13.7563, lng: 100.5018 },
+      mapTypeId: 'roadmap', disableDefaultUI: true,
+      zoomControl: true, gestureHandling: 'greedy'
+    });
+    modalDirService  = new google.maps.DirectionsService();
+    modalDirRenderer = new google.maps.DirectionsRenderer({
+      map: modalMap, suppressMarkers: true,
+      polylineOptions: { strokeColor: '#4f8ef7', strokeWeight: 5, strokeOpacity: 0.8 }
+    });
+  }
+
+  function updateModalDriver(loc, o) {
+    // Show map, hide placeholder
+    document.getElementById('modalNoLoc').style.display = 'none';
+    document.getElementById('modalMap').style.display   = 'block';
+    document.getElementById('modalLocBar').style.display = 'flex';
+
+    // Coords + time
+    document.getElementById('modalCoords').textContent    = loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5);
+    document.getElementById('modalUpdatedAt').textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleTimeString('th-TH') : '—';
+
+    if (!modalMap) {
+      initModalMap();
+      // Re-add customer marker after map init
+      if (o.customer?.lat) {
+        modalCustomerMarker = new google.maps.Marker({
+          position: { lat: o.customer.lat, lng: o.customer.lng },
+          map: modalMap, zIndex: 20,
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        });
+      }
+    }
+
+    const driverPos = { lat: loc.lat, lng: loc.lng };
+    if (!modalDriverMarker) {
+      modalDriverMarker = new google.maps.Marker({
+        position: driverPos, map: modalMap, zIndex: 10,
+        icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6, fillColor: '#4f8ef7', fillOpacity: 1,
+          strokeColor: 'white', strokeWeight: 2, rotation: 0 }
+      });
+    } else {
+      modalDriverMarker.setPosition(driverPos);
+    }
+
+    // Fit bounds
+    if (o.customer?.lat) {
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(driverPos);
+      bounds.extend({ lat: o.customer.lat, lng: o.customer.lng });
+      modalMap.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    } else {
+      modalMap.panTo(driverPos);
+    }
+
+    // Route + ETA (throttle 15s)
+    const now = Date.now();
+    if (o.customer?.lat && now - modalLastRoute > 15000) {
+      modalLastRoute = now;
+      modalDirService.route({
+        origin: driverPos,
+        destination: { lat: o.customer.lat, lng: o.customer.lng },
+        travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
+      }, (res, status) => {
+        if (status === 'OK') {
+          modalDirRenderer.setDirections(res);
+          const leg    = res.routes[0].legs[0];
+          const arrival = new Date(Date.now() + leg.duration.value * 1000);
+          const arrStr  = arrival.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+          document.getElementById('modalEtaTime').textContent = leg.duration.text;
+          document.getElementById('modalEtaDist').textContent = leg.distance.text;
+          document.getElementById('modalEtaArr').textContent  = 'ถึงประมาณ ' + arrStr;
+          document.getElementById('modalEta').style.display   = 'flex';
+        }
+      });
+    }
+  }
+
+  function closeMapModal() {
+    document.getElementById('mapModal').classList.remove('show');
+    if (modalLocationRef) { modalLocationRef.off(); modalLocationRef = null; }
+    // Reset for next open
+    if (modalDriverMarker)  { modalDriverMarker.setMap(null);  modalDriverMarker  = null; }
+    if (modalCustomerMarker){ modalCustomerMarker.setMap(null); modalCustomerMarker = null; }
+    if (modalDirRenderer)   { modalDirRenderer.setDirections({ routes: [] }); }
+    document.getElementById('modalNoLoc').style.display  = 'block';
+    document.getElementById('modalMap').style.display    = 'none';
+    document.getElementById('modalLocBar').style.display = 'none';
+    document.getElementById('modalEta').style.display    = 'none';
+    modalMap = null; modalDirService = null; modalDirRenderer = null;
+    modalLastRoute = 0; currentModalOrderId = null;
+  }
+
+  function handleMapOverlayClick(e) {
+    if (e.target === e.currentTarget) closeMapModal();
   }
 </script>
 </body>
