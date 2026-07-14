@@ -371,10 +371,12 @@
       const dist = haversine(lat,lng,dLat,dLng);
       const dTxt = dist<1?`${Math.round(dist*1000)} ม.`:`${dist.toFixed(1)} กม.`;
       document.getElementById('valDist').innerHTML = dist<=10?`<span class="dist-near">${dTxt} 🔴</span>`:dTxt;
-      if (dist<=10 && orderActive) startBroadcast();
-      else if (dist>10 && broadcastTimer) stopBroadcast();
+      // แสดง nearby alert เมื่อใกล้ถึง แต่ไม่ผูก broadcast กับระยะแล้ว
+      if (dist<=10) document.getElementById('nearbyAlert').classList.add('show');
+      else          document.getElementById('nearbyAlert').classList.remove('show');
       if (map) calcRoute();
     }
+    // broadcast ทุก GPS update เสมอ ไม่ว่าจะอยู่ไกลแค่ไหน
     if (orderActive) broadcastNow();
   }
 
@@ -489,7 +491,10 @@
       eta:document.getElementById('etaTime').textContent||'—',
       etaDistance:document.getElementById('etaDist').textContent||'—'
     });
-    broadcastNow(); saveOrderToStorage();
+    // broadcast ทันทีและเริ่ม interval ทุก 10 วินาที
+    broadcastNow();
+    startBroadcast();
+    saveOrderToStorage();
     document.getElementById('driverCardBody').classList.add('hidden');
     document.getElementById('driverToggleIcon').textContent = '▶';
     document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
@@ -499,13 +504,11 @@
 
   function startBroadcast() {
     if (broadcastTimer) return;
-    document.getElementById('nearbyAlert').classList.add('show');
-    broadcastTimer = setInterval(broadcastNow,5000);
-    showToast('📡 เริ่ม Broadcast ตำแหน่ง real-time!');
+    // broadcast ทุก 10 วินาที ตลอดเวลา ไม่จำกัดระยะทาง
+    broadcastTimer = setInterval(broadcastNow, 15000);
   }
   function stopBroadcast() {
     clearInterval(broadcastTimer); broadcastTimer = null;
-    document.getElementById('nearbyAlert').classList.remove('show');
   }
   function broadcastNow() {
     if (!currentPos||!orderId||!orderActive) return;
@@ -619,6 +622,9 @@
       if (map) { placeDestMarker(loc); if (currentPos) calcRoute(); }
     }
     orderActive = true;
+    // broadcast ทันทีที่ resume ถ้า GPS ล็อคแล้ว และเริ่ม interval
+    if (currentPos) broadcastNow();
+    startBroadcast();
     document.getElementById('driverCardBody').classList.add('hidden');
     document.getElementById('driverToggleIcon').textContent = '▶';
     document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
