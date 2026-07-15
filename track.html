@@ -290,6 +290,8 @@
 
   function loadOrder() {
     if (!orderId) { showError('❓','ไม่พบ Order','ไม่มี Order ID ใน Link นี้','ขอ Link ใหม่จากพนักงานส่งสินค้า'); return; }
+
+    // Main real-time listener (WebSocket) — works in normal browsers
     db.ref('orders/' + orderId).on('value', snap => {
       if (!snap.exists()) { showError('🔍','ไม่พบ Order','ไม่พบข้อมูล Order ID: ' + orderId,'กรุณาตรวจสอบ Link อีกครั้ง'); return; }
       const data = snap.val();
@@ -298,6 +300,23 @@
       document.getElementById('mainContent').style.display   = 'flex';
       updateUI(data);
     });
+
+    // HTTP polling fallback every 10s — works even when WebSocket is blocked (LINE WebView, etc.)
+    setInterval(() => {
+      db.ref('orders/' + orderId + '/location').once('value').then(snap => {
+        if (snap.exists() && snap.val()) renderMap(snap.val());
+      }).catch(() => {});
+    }, 10000);
+
+    // Also poll full order every 30s to catch status/ETA changes in restricted environments
+    setInterval(() => {
+      db.ref('orders/' + orderId).once('value').then(snap => {
+        if (!snap.exists()) return;
+        const data = snap.val();
+        if (data.expireAt && Date.now() > data.expireAt) return;
+        updateUI(data);
+      }).catch(() => {});
+    }, 30000);
   }
 
   function updateUI(data) {
