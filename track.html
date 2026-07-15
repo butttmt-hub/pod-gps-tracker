@@ -112,9 +112,32 @@
     .state-banner.red   .s-title { color: var(--red); }
 
     footer { text-align: center; padding: 20px 14px 32px; font-size: 11px; color: var(--muted); }
+
+    /* LINE WebView Banner */
+    .line-banner {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: linear-gradient(135deg, #06C755, #04a847);
+      padding: 10px 14px; flex-direction: column; gap: 4px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .line-banner.show { display: flex; }
+    .line-banner-title { font-size: 13px; font-weight: 800; color: white; display: flex; align-items: center; gap: 6px; }
+    .line-banner-sub   { font-size: 11px; color: rgba(255,255,255,0.85); }
+    .line-banner-btn   {
+      margin-top: 6px; background: white; color: #06C755; border: none;
+      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 800;
+      cursor: pointer; font-family: 'Inter', sans-serif; align-self: flex-start;
+    }
   </style>
 </head>
 <body class="light">
+
+<!-- LINE WebView Banner -->
+<div class="line-banner" id="lineBanner">
+  <div class="line-banner-title">⚠️ กรุณาเปิดในเบราว์เซอร์</div>
+  <div class="line-banner-sub">LINE Browser ไม่รองรับการแสดงตำแหน่ง real-time<br>กรุณาเปิดลิงค์นี้ใน Chrome หรือ Safari</div>
+  <button class="line-banner-btn" onclick="openInBrowser()">🌐 เปิดใน Browser</button>
+</div>
 
 <!-- Loading Screen -->
 <div class="loading-screen" id="loadingScreen">
@@ -390,10 +413,25 @@
     localStorage.setItem('pod_theme', next || 'dark');
   }
 
+  function openInBrowser() {
+    // ลอง redirect ด้วย intent (Android) หรือแค่เปิด URL ใหม่
+    const url = window.location.href.replace('openExternalBrowser=1','') + (window.location.href.includes('?') ? '&' : '?') + 'openExternalBrowser=1';
+    window.location.href = location.href.includes('openExternalBrowser') ? location.href : location.href + '&openExternalBrowser=1';
+  }
+
   window.addEventListener('load', () => {
     const saved = localStorage.getItem('pod_theme') || 'light';
     document.body.className = saved;
     document.getElementById('btnTheme').textContent = saved === 'light' ? '🌙' : '☀️';
+
+    // Detect LINE in-app browser
+    const ua = navigator.userAgent || '';
+    const isLine = /Line\//i.test(ua);
+    if (isLine) {
+      document.getElementById('lineBanner').classList.add('show');
+      // ดัน header ลงเพื่อไม่ให้ banner บัง
+      document.querySelector('.header') && (document.querySelector('.header').style.marginTop = '110px');
+    }
   });
 </script>
 </body>
