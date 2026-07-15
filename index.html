@@ -478,7 +478,7 @@
     if (!currentPos)            { showToast('⚠️ รอ GPS ล็อคก่อน'); return; }
     orderActive = true;
     const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
-    customerLink = `${base}track.html?order=${orderId}`;
+    customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
     document.getElementById('linkUrl').textContent = customerLink;
     document.getElementById('linkBox').style.display = 'block';
     document.getElementById('btnLink').disabled = false;
