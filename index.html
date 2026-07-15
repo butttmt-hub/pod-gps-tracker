@@ -510,9 +510,21 @@
   function stopBroadcast() {
     clearInterval(broadcastTimer); broadcastTimer = null;
   }
+  let broadcastCount = 0;
   function broadcastNow() {
     if (!currentPos||!orderId||!orderActive) return;
-    db.ref(`orders/${orderId}/location`).set({lat:currentPos.coords.latitude,lng:currentPos.coords.longitude,accuracy:currentPos.coords.accuracy,timestamp:firebase.database.ServerValue.TIMESTAMP});
+    db.ref(`orders/${orderId}/location`).set({
+      lat: currentPos.coords.latitude,
+      lng: currentPos.coords.longitude,
+      accuracy: currentPos.coords.accuracy,
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      broadcastCount++;
+      setChip('chipFB', 'good', `Firebase: 📡 #${broadcastCount}`);
+    }).catch(err => {
+      setChip('chipFB', 'bad', 'Firebase: ❌ Error');
+      console.error('broadcast error', err);
+    });
   }
 
   function openGoogleMaps() {
