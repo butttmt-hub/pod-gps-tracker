@@ -301,22 +301,23 @@
       updateUI(data);
     });
 
-    // HTTP polling fallback every 10s — works even when WebSocket is blocked (LINE WebView, etc.)
-    setInterval(() => {
-      db.ref('orders/' + orderId + '/location').once('value').then(snap => {
-        if (snap.exists() && snap.val()) renderMap(snap.val());
-      }).catch(() => {});
-    }, 10000);
-
-    // Also poll full order every 30s to catch status/ETA changes in restricted environments
-    setInterval(() => {
-      db.ref('orders/' + orderId).once('value').then(snap => {
-        if (!snap.exists()) return;
-        const data = snap.val();
-        if (data.expireAt && Date.now() > data.expireAt) return;
-        updateUI(data);
-      }).catch(() => {});
-    }, 30000);
+    // REST API polling — pure HTTP fetch, ทำงานได้แม้ WebSocket ถูกบล็อค (LINE WebView, etc.)
+    const REST = 'https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app';
+    function pollREST() {
+      // Poll location
+      fetch(`${REST}/orders/${orderId}/location.json`)
+        .then(r => r.json()).then(loc => {
+          if (loc && loc.lat && loc.lng) renderMap(loc);
+        }).catch(() => {});
+      // Poll full order for status/ETA
+      fetch(`${REST}/orders/${orderId}.json`)
+        .then(r => r.json()).then(data => {
+          if (!data || (data.expireAt && Date.now() > data.expireAt)) return;
+          updateUI(data);
+        }).catch(() => {});
+    }
+    pollREST(); // ดึงทันทีตอนเปิดหน้า
+    setInterval(pollREST, 10000); // แล้วดึงซ้ำทุก 10 วินาที
   }
 
   function updateUI(data) {
