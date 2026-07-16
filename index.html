@@ -165,6 +165,14 @@
   <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="สลับโหมด">☀️</button>
 </div>
 
+<!-- Planner Order Banner (แสดงเมื่อเปิดด้วย ?order= จาก Planner) -->
+<div id="plannerBanner" style="display:none;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,108,247,0.08));border:1px solid rgba(79,142,247,0.25);border-left:3px solid var(--accent);border-radius:12px;margin:10px 14px;padding:12px 14px;">
+  <div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">📋 งานจาก Planner</div>
+  <div id="plannerSeqText" style="font-size:14px;font-weight:800"></div>
+  <div id="plannerCustText" style="font-size:12px;color:var(--muted2);margin-top:2px"></div>
+  <div id="plannerDestText" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+</div>
+
 <!-- Driver Info Card -->
 <div class="driver-card">
   <div class="driver-card-header" onclick="toggleDriverCard()">
@@ -314,7 +322,7 @@
 
   let map, myMarker, accCircle, destMarker, dirService, dirRenderer;
   let currentPos = null, destPlace = null;
-  let orderId = genOrderId(), orderActive = false;
+  let orderId = genOrderId(), orderActive = false, isPlannerOrder = false;
   let broadcastTimer = null, lastRouteCalc = 0;
   let checkInCount = 0, logs = [], customerLink = '';
   document.getElementById('orderBadge').textContent = orderId;
@@ -345,6 +353,56 @@
       if (currentPos) calcRoute();
     });
     if (currentPos) updateMyPin(currentPos);
+    checkPlannerOrder(); // ตรวจสอบ ?order= จาก URL
+  }
+
+  function checkPlannerOrder() {
+    const urlOrder = new URLSearchParams(window.location.search).get('order');
+    if (!urlOrder) return;
+    orderId = urlOrder;
+    isPlannerOrder = true;
+    document.getElementById('orderBadge').textContent = orderId;
+    db.ref('orders/'+urlOrder).once('value').then(snap => {
+      if (!snap.exists()) { showToast('⚠️ ไม่พบ Order '+urlOrder); return; }
+      const data = snap.val();
+      if (data.driver) {
+        document.getElementById('driverName').value  = data.driver.name  || '';
+        document.getElementById('driverPhone').value = data.driver.phone || '';
+        document.getElementById('driverPlate').value = data.driver.plate || '';
+      }
+      // แสดง banner
+      document.getElementById('plannerBanner').style.display = 'block';
+      document.getElementById('plannerSeqText').textContent  = `งานที่ ${data.seq||'—'} · ${urlOrder}`;
+      const ci = [data.customer?.name, data.customer?.phone?'📞 '+data.customer.phone:''].filter(Boolean).join(' · ');
+      document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
+      document.getElementById('plannerDestText').textContent = data.customer?.address ? '📍 '+data.customer.address : '';
+      document.getElementById('btnStart').textContent = `🚀 เริ่มงานที่ ${data.seq||1}`;
+      // Auto-set destination
+      if (data.customer?.lat && data.customer?.lng) {
+        const loc = new google.maps.LatLng(data.customer.lat, data.customer.lng);
+        destPlace = {geometry:{location:loc}, name:data.customer.name||'', formatted_address:data.customer.address||''};
+        document.getElementById('destInput').value = data.customer.address || data.customer.name || '';
+        document.getElementById('btnClearDest').style.display = 'block';
+        document.getElementById('btnGMaps').disabled = false;
+        placeDestMarker(loc);
+        if (currentPos) calcRoute();
+      }
+      // Customer link พร้อมใช้ทันที
+      const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
+      customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
+      document.getElementById('linkUrl').textContent = customerLink;
+      document.getElementById('linkBox').style.display = 'block';
+      document.getElementById('btnLink').disabled = false;
+      // ถ้า order กำลัง delivering อยู่แล้ว → resume
+      if (data.status === 'delivering') {
+        orderActive = true;
+        startBroadcast();
+        if (currentPos) broadcastNow();
+        document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+        document.getElementById('btnStart').disabled = true;
+        showToast(`🔄 Order ${urlOrder} กำลังดำเนินการ`);
+      }
+    }).catch(()=>showToast('❌ โหลด Order ไม่สำเร็จ'));
   }
 
   function startGPS() {
@@ -482,15 +540,23 @@
     document.getElementById('linkUrl').textContent = customerLink;
     document.getElementById('linkBox').style.display = 'block';
     document.getElementById('btnLink').disabled = false;
-    db.ref(`orders/${orderId}`).set({
-      driver:{name,phone,plate},
-      customer:{lat:destPlace.geometry.location.lat(),lng:destPlace.geometry.location.lng(),name:destPlace.name||'',address:destPlace.formatted_address||''},
-      status:'delivering',
-      createdAt:firebase.database.ServerValue.TIMESTAMP,
-      expireAt:Date.now()+24*60*60*1000,
-      eta:document.getElementById('etaTime').textContent||'—',
-      etaDistance:document.getElementById('etaDist').textContent||'—'
-    });
+    if (isPlannerOrder) {
+      // order จาก Planner — อัพเดตเฉพาะ status (ไม่ overwrite ข้อมูลเดิม)
+      db.ref('orders/'+orderId+'/status').set('delivering');
+      db.ref('orders/'+orderId+'/startedAt').set(firebase.database.ServerValue.TIMESTAMP);
+      db.ref('orders/'+orderId+'/driver').set({name,phone,plate});
+    } else {
+      // order ปกติ — สร้างใหม่
+      db.ref(`orders/${orderId}`).set({
+        driver:{name,phone,plate},
+        customer:{lat:destPlace.geometry.location.lat(),lng:destPlace.geometry.location.lng(),name:destPlace.name||'',address:destPlace.formatted_address||''},
+        status:'delivering',
+        createdAt:firebase.database.ServerValue.TIMESTAMP,
+        expireAt:Date.now()+24*60*60*1000,
+        eta:document.getElementById('etaTime').textContent||'—',
+        etaDistance:document.getElementById('etaDist').textContent||'—'
+      });
+    }
     // broadcast ทันทีและเริ่ม interval ทุก 10 วินาที
     broadcastNow();
     startBroadcast();
