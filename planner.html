@@ -137,10 +137,33 @@
     .c-accent { color: var(--accent); } .c-orange { color: var(--orange); }
     .c-green  { color: var(--green);  } .c-red    { color: var(--red);    }
 
+    /* ── Date Filter Bar ───────────────────────────── */
+    .date-filter-bar {
+      display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 16px 24px 4px;
+    }
+    .date-filter-label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.3px; }
+    .date-btn {
+      padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface); font-size: 12px; font-weight: 600; color: var(--muted);
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .date-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+    .date-btn.active { background: rgba(124,108,247,0.15); border-color: rgba(124,108,247,0.4); color: var(--accent2); }
+    .date-picker {
+      padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-size: 12px;
+      font-family: 'Inter', sans-serif; cursor: pointer; outline: none; transition: all 0.2s;
+    }
+    .date-picker:focus { border-color: rgba(124,108,247,0.4); }
+    .date-count-badge {
+      margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600;
+    }
+
     /* ── Filter Bar ────────────────────────────────── */
     .filter-bar {
       display: none; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding: 16px 24px 0;
+      padding: 8px 24px 0;
     }
     .filter-btn {
       padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border);
@@ -328,8 +351,9 @@
     .toast.show { opacity: 1; }
 
     @media (max-width: 600px) {
-      .summary-bar { grid-template-columns: repeat(2,1fr); padding: 14px 14px 0; }
-      .filter-bar  { padding: 12px 14px 0; }
+      .summary-bar      { grid-template-columns: repeat(2,1fr); padding: 14px 14px 0; }
+      .date-filter-bar  { padding: 10px 14px 0; }
+      .filter-bar       { padding: 8px 14px 0; }
       .order-list  { padding: 12px 14px 24px; }
       .header      { padding: 0 14px; }
       .info-grid   { grid-template-columns: repeat(2,1fr); }
@@ -393,6 +417,16 @@
     <div class="sum-num c-red" id="sumExpired">0</div>
     <div class="sum-label">หมดอายุ</div>
   </div>
+</div>
+
+<!-- Date Filter Bar -->
+<div class="date-filter-bar" id="dateFilterBar">
+  <span class="date-filter-label">📅 วันที่:</span>
+  <button class="date-btn active" id="dateBtnToday"    onclick="setDateFilter('today',this)">วันนี้</button>
+  <button class="date-btn"        id="dateBtnYesterday" onclick="setDateFilter('yesterday',this)">เมื่อวาน</button>
+  <button class="date-btn"        id="dateBtnAll"       onclick="setDateFilter('all',this)">ทั้งหมด</button>
+  <input  type="date" class="date-picker" id="datePickerInput" onchange="setDateFilter('custom',null,this.value)" title="เลือกวันที่" />
+  <span class="date-count-badge" id="dateCountBadge"></span>
 </div>
 
 <!-- Filter Bar -->
@@ -520,7 +554,19 @@
   });
   const db = firebase.database();
 
-  let allOrders = {}, currentFilter = 'all';
+  let allOrders = {}, currentFilter = 'all', currentDateFilter = 'today';
+
+  function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function setDateFilter(type, btn, val) {
+    currentDateFilter = (type === 'custom') ? val : type;
+    document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    if (type !== 'custom') document.getElementById('datePickerInput').value = '';
+    renderOrders();
+  }
 
   window.addEventListener('load', () => {
     if (sessionStorage.getItem('planner_auth') === '1') {
@@ -530,9 +576,10 @@
   });
 
   function showDashboard() {
-    document.getElementById('mainHeader').style.display = 'flex';
-    document.getElementById('summaryBar').style.display = 'grid';
-    document.getElementById('filterBar').style.display  = 'flex';
+    document.getElementById('mainHeader').style.display    = 'flex';
+    document.getElementById('summaryBar').style.display    = 'grid';
+    document.getElementById('dateFilterBar').style.display = 'flex';
+    document.getElementById('filterBar').style.display     = 'flex';
 
     db.ref('.info/connected').on('value', s => {
       document.getElementById('livePill').style.display = s.val() ? 'flex' : 'none';
@@ -576,9 +623,22 @@
     document.getElementById('sumDone').textContent    = cDone;
     document.getElementById('sumExpired').textContent = cExp;
 
+    const todayStr     = toDateStr(new Date());
+    const yesterdayStr = toDateStr(new Date(Date.now() - 86400000));
+
     const filtered = entries.filter(([id,o]) => {
+      // Date filter
+      if (currentDateFilter !== 'all') {
+        const orderDate = o.createdAt ? toDateStr(new Date(o.createdAt)) : '';
+        if (currentDateFilter === 'today'     && orderDate !== todayStr)     return false;
+        if (currentDateFilter === 'yesterday' && orderDate !== yesterdayStr) return false;
+        if (currentDateFilter !== 'today' && currentDateFilter !== 'yesterday'
+            && orderDate !== currentDateFilter) return false;
+      }
+      // Status filter
       const s = getStatus(o);
       if (currentFilter !== 'all' && s !== currentFilter) return false;
+      // Search
       if (q) {
         const hay = [id, o.driver?.name, o.driver?.phone, o.driver?.plate,
                      o.customer?.name, o.customer?.address].join(' ').toLowerCase();
@@ -586,6 +646,15 @@
       }
       return true;
     });
+
+    // Update date count badge
+    const badge = document.getElementById('dateCountBadge');
+    if (badge) {
+      if (currentDateFilter === 'today')     badge.textContent = `${filtered.length} order วันนี้`;
+      else if (currentDateFilter === 'yesterday') badge.textContent = `${filtered.length} order เมื่อวาน`;
+      else if (currentDateFilter === 'all')  badge.textContent = `ทั้งหมด ${filtered.length} order`;
+      else badge.textContent = `${filtered.length} order`;
+    }
 
     const el = document.getElementById('orderList');
     if (!filtered.length) {
