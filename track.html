@@ -307,22 +307,38 @@
     // REST API polling — pure HTTP fetch, ทำงานได้แม้ WebSocket ถูกบล็อค (LINE WebView, etc.)
     const REST = 'https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app';
     function pollREST() {
-      // Poll location
-      fetch(`${REST}/orders/${orderId}/location.json`)
-        .then(r => r.json()).then(loc => {
+      // Fetch full order (รวม location) ด้วย request เดียว
+      fetch(`${REST}/orders/${orderId}.json`)
+        .then(r => r.json())
+        .then(data => {
           const dbg = document.getElementById('debugPanel');
-          if (dbg) dbg.textContent = '🔍 REST: ' + JSON.stringify(loc) + ' @ ' + new Date().toLocaleTimeString('th-TH');
-          if (loc && loc.lat && loc.lng) renderMap(loc);
-        }).catch(e => {
+          if (!data) {
+            if (dbg) dbg.textContent = '🔍 REST: null — ไม่มีข้อมูล Order';
+            return;
+          }
+          if (data.expireAt && Date.now() > data.expireAt) {
+            if (dbg) dbg.textContent = '⏰ REST: Order หมดอายุแล้ว';
+            return;
+          }
+          // Show content ก่อน (กรณี WebSocket ไม่ทำงาน loadingScreen ยังขึ้นอยู่)
+          document.getElementById('loadingScreen').style.display = 'none';
+          document.getElementById('mainContent').style.display   = 'flex';
+          updateUI(data);
+          // Render map ด้วย location จาก full order snapshot
+          const loc = data.location;
+          if (dbg) {
+            dbg.textContent = loc
+              ? `🔍 REST ✓ lat:${loc.lat?.toFixed(5)} lng:${loc.lng?.toFixed(5)} @ ${new Date().toLocaleTimeString('th-TH')}`
+              : `🔍 REST: location=null (คนขับยังไม่ได้ broadcast) @ ${new Date().toLocaleTimeString('th-TH')}`;
+          }
+          if (loc && loc.lat && loc.lng && data.status !== 'arrived' && data.status !== 'cancelled') {
+            renderMap(loc);
+          }
+        })
+        .catch(e => {
           const dbg = document.getElementById('debugPanel');
           if (dbg) dbg.textContent = '❌ REST Error: ' + e;
         });
-      // Poll full order for status/ETA
-      fetch(`${REST}/orders/${orderId}.json`)
-        .then(r => r.json()).then(data => {
-          if (!data || (data.expireAt && Date.now() > data.expireAt)) return;
-          updateUI(data);
-        }).catch(() => {});
     }
     pollREST(); // ดึงทันทีตอนเปิดหน้า
     setInterval(pollREST, 10000); // แล้วดึงซ้ำทุก 10 วินาที
@@ -360,7 +376,8 @@
   function renderMap(loc) {
     if (!map) return;
     const pos = {lat: loc.lat, lng: loc.lng};
-    document.getElementById('mapLoading').style.display = 'none';
+    const mapLoadingEl = document.getElementById('mapLoading');
+    if (mapLoadingEl) mapLoadingEl.style.display = 'none';
     if (!driverMarker) {
       driverMarker = new google.maps.Marker({position:pos, map, zIndex:10,
         icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale:6,
