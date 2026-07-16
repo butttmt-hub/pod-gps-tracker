@@ -8,7 +8,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNyj339cXecixlm_Dt1wnxVu_TzNflfV4&libraries=places" async defer></script>
 
   <style>
     :root {
@@ -253,6 +253,95 @@
     .btn-cancel { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
     .btn-cancel:hover { background: rgba(248,113,113,0.2) !important; }
 
+    /* ── New Order Button ──────────────────────────── */
+    .btn-new-order {
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white;
+      border: none; border-radius: 10px; padding: 7px 14px; font-size: 12px; font-weight: 800;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s; white-space: nowrap;
+    }
+    .btn-new-order:hover { opacity: 0.85; }
+
+    /* ── Create Order Modal ─────────────────────────── */
+    .create-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      z-index: 700; display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); padding: 16px;
+    }
+    .create-modal-overlay.show { display: flex; }
+    .create-modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; width: 100%; max-width: 500px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+      overflow: hidden; display: flex; flex-direction: column; max-height: 92vh;
+    }
+    .create-modal-head {
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .create-modal-title { font-size: 15px; font-weight: 800; }
+    .create-modal-close {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted2);
+      border-radius: 8px; width: 28px; height: 28px; cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .create-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .create-section-title {
+      font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase;
+      letter-spacing: 0.6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-top: 4px;
+    }
+    .create-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .create-group { display: flex; flex-direction: column; gap: 4px; }
+    .create-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .create-input {
+      background: var(--surface2); border: 1.5px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 9px 10px; font-size: 13px; outline: none;
+      font-family: 'Inter', sans-serif; transition: border-color 0.2s;
+    }
+    .create-input:focus { border-color: rgba(79,142,247,0.5); }
+    .create-input::placeholder { color: var(--muted); }
+    .seq-row { display: flex; gap: 8px; }
+    .seq-btn {
+      flex: 1; padding: 9px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--surface2); color: var(--muted); font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    }
+    .seq-btn.active { background: rgba(79,142,247,0.15); border-color: rgba(79,142,247,0.5); color: var(--accent); }
+    .create-modal-foot {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+    .btn-create-cancel {
+      padding: 11px 18px; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--surface2); color: var(--muted2); font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    .btn-create-submit {
+      flex: 1; padding: 11px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white;
+      font-size: 13px; font-weight: 800; cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    .btn-create-submit:hover { opacity: 0.9; }
+    .btn-create-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Success */
+    .create-success { display: none; }
+    .create-success-icon { font-size: 40px; text-align: center; }
+    .create-success-id { font-size: 18px; font-weight: 900; color: var(--accent); text-align: center; letter-spacing: -0.5px; }
+    .create-link-row { display: flex; flex-direction: column; gap: 4px; }
+    .create-link-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .create-link-row-inner { display: flex; gap: 6px; }
+    .create-link-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--muted2);
+      border-radius: 8px; padding: 8px 10px; font-size: 11px; outline: none; font-family: monospace;
+    }
+    .create-link-copy {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+    }
+    /* Pending status */
+    .order-card.pending { border-left: 3px solid var(--accent2); }
+    .pill-pending { background: rgba(124,108,247,0.12); color: var(--accent2); border: 1px solid rgba(124,108,247,0.25); }
+
     /* Confirm Dialog */
     .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
     .dialog-overlay.show { display: flex; }
@@ -390,6 +479,7 @@
     <div class="live-pill" id="livePill" style="display:none">
       <div class="live-dot"></div>Live
     </div>
+    <button class="btn-new-order" id="btnNewOrder" onclick="openCreateModal()" style="display:none">➕ สร้าง Order</button>
     <button class="btn-theme" id="themeBtn" onclick="toggleTheme()" title="สลับโหมด">🌙</button>
     <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
   </div>
@@ -447,6 +537,81 @@
   <div class="order-empty">
     <div class="order-empty-icon">📭</div>
     <div>กำลังโหลดข้อมูล...</div>
+  </div>
+</div>
+
+<!-- Create Order Modal -->
+<div class="create-modal-overlay" id="createModalOverlay" onclick="handleCreateOverlayClick(event)">
+  <div class="create-modal-box" onclick="event.stopPropagation()">
+    <div class="create-modal-head">
+      <div class="create-modal-title">➕ สร้าง Order ใหม่</div>
+      <button class="create-modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <!-- Form -->
+    <div class="create-modal-body" id="createFormBody">
+      <div class="create-section-title">👤 ข้อมูลคนขับ</div>
+      <div class="create-row">
+        <div class="create-group">
+          <div class="create-label">ชื่อ-นามสกุล *</div>
+          <input class="create-input" id="cDriverName" placeholder="ชื่อ นามสกุล" />
+        </div>
+        <div class="create-group">
+          <div class="create-label">เบอร์โทร *</div>
+          <input class="create-input" id="cDriverPhone" type="tel" placeholder="0812345678" />
+        </div>
+      </div>
+      <div class="create-group">
+        <div class="create-label">ทะเบียนรถ *</div>
+        <input class="create-input" id="cDriverPlate" placeholder="กข 1234 กรุงเทพ" />
+      </div>
+      <div class="create-section-title">📦 ข้อมูลลูกค้า</div>
+      <div class="create-row">
+        <div class="create-group">
+          <div class="create-label">ชื่อลูกค้า / บริษัท</div>
+          <input class="create-input" id="cCustName" placeholder="ชื่อ บริษัท" />
+        </div>
+        <div class="create-group">
+          <div class="create-label">เบอร์ลูกค้า</div>
+          <input class="create-input" id="cCustPhone" type="tel" placeholder="0812345678" />
+        </div>
+      </div>
+      <div class="create-section-title">📍 ปลายทาง</div>
+      <div class="create-group">
+        <div class="create-label">ที่อยู่ปลายทาง *</div>
+        <input class="create-input" id="cDestInput" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
+      </div>
+      <div class="create-section-title">🔢 ลำดับงาน</div>
+      <div class="seq-row">
+        <button class="seq-btn active" onclick="selectSeq(1,this)">งานที่ 1</button>
+        <button class="seq-btn"        onclick="selectSeq(2,this)">งานที่ 2</button>
+        <button class="seq-btn"        onclick="selectSeq(3,this)">งานที่ 3</button>
+      </div>
+    </div>
+    <!-- Success -->
+    <div class="create-modal-body create-success" id="createSuccessBody">
+      <div class="create-success-icon">✅</div>
+      <div class="create-success-id" id="createSuccessId"></div>
+      <div style="font-size:12px;color:var(--muted);text-align:center">สร้าง Order สำเร็จ — ส่งลิงค์ให้คนขับและลูกค้าได้เลย</div>
+      <div class="create-link-row">
+        <div class="create-link-label">🚗 Driver Link — ส่งให้คนขับ</div>
+        <div class="create-link-row-inner">
+          <input class="create-link-input" id="createDriverLink" readonly />
+          <button class="create-link-copy" onclick="copyCreateLink('driver')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="create-link-row">
+        <div class="create-link-label">📦 Customer Link — ส่งให้ลูกค้า</div>
+        <div class="create-link-row-inner">
+          <input class="create-link-input" id="createCustLink" readonly />
+          <button class="create-link-copy" onclick="copyCreateLink('customer')">📋 Copy</button>
+        </div>
+      </div>
+      <button class="btn-create-submit" onclick="resetCreateModal()" style="margin-top:4px">➕ สร้าง Order ใหม่อีกครั้ง</button>
+    </div>
+    <div class="create-modal-foot" id="createModalFoot">
+      <button class="btn-create-cancel" onclick="closeCreateModal()">ยกเลิก</button>
+      <button class="btn-create-submit" id="btnCreateSubmit" onclick="handleCreateOrder()">✅ สร้าง Order</button>
+    </div>
   </div>
 </div>
 
@@ -580,6 +745,7 @@
     document.getElementById('summaryBar').style.display    = 'grid';
     document.getElementById('dateFilterBar').style.display = 'flex';
     document.getElementById('filterBar').style.display     = 'flex';
+    document.getElementById('btnNewOrder').style.display   = 'block';
 
     db.ref('.info/connected').on('value', s => {
       document.getElementById('livePill').style.display = s.val() ? 'flex' : 'none';
@@ -600,8 +766,96 @@
     renderOrders();
   }
 
+  function genOrderId() {
+    const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    return `ORD${ds}${Math.random().toString(36).substr(2,4).toUpperCase()}`;
+  }
+
+  // ── Create Order ────────────────────────────────────
+  let createAutocomplete = null, createDestPlace = null, createSeqVal = 1;
+
+  function openCreateModal() {
+    document.getElementById('createFormBody').style.display  = 'flex';
+    document.getElementById('createSuccessBody').style.display = 'none';
+    document.getElementById('createModalFoot').style.display = 'flex';
+    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput']
+      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    createDestPlace = null; createSeqVal = 1;
+    document.querySelectorAll('.seq-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+    const btn = document.getElementById('btnCreateSubmit');
+    btn.textContent = '✅ สร้าง Order'; btn.disabled = false;
+    document.getElementById('createModalOverlay').classList.add('show');
+    setTimeout(() => {
+      if (!createAutocomplete && window.google?.maps?.places) {
+        createAutocomplete = new google.maps.places.Autocomplete(
+          document.getElementById('cDestInput'),
+          {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}}
+        );
+        createAutocomplete.addListener('place_changed', ()=>{ createDestPlace=createAutocomplete.getPlace(); });
+      }
+    }, 200);
+  }
+  function closeCreateModal() { document.getElementById('createModalOverlay').classList.remove('show'); }
+  function handleCreateOverlayClick(e) { if(e.target===document.getElementById('createModalOverlay')) closeCreateModal(); }
+  function selectSeq(n,btn) {
+    createSeqVal=n;
+    document.querySelectorAll('.seq-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  function resetCreateModal() {
+    document.getElementById('createFormBody').style.display  = 'flex';
+    document.getElementById('createSuccessBody').style.display = 'none';
+    document.getElementById('createModalFoot').style.display = 'flex';
+    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput']
+      .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    createDestPlace=null; createSeqVal=1;
+    document.querySelectorAll('.seq-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+    const btn=document.getElementById('btnCreateSubmit');
+    btn.textContent='✅ สร้าง Order'; btn.disabled=false;
+  }
+  function handleCreateOrder() {
+    const name  = document.getElementById('cDriverName').value.trim();
+    const phone = document.getElementById('cDriverPhone').value.trim();
+    const plate = document.getElementById('cDriverPlate').value.trim();
+    if (!name||!phone||!plate) { showToast('⚠️ กรอกข้อมูลคนขับให้ครบ'); return; }
+    if (!createDestPlace?.geometry) { showToast('⚠️ เลือกปลายทางจากรายการ (กด Enter หรือคลิกเลือก)'); return; }
+    const btn = document.getElementById('btnCreateSubmit');
+    btn.textContent='⏳ กำลังสร้าง...'; btn.disabled=true;
+    const orderId = genOrderId();
+    db.ref('orders/'+orderId).set({
+      driver:{name,phone,plate},
+      customer:{
+        name: document.getElementById('cCustName').value.trim(),
+        phone: document.getElementById('cCustPhone').value.trim(),
+        lat: createDestPlace.geometry.location.lat(),
+        lng: createDestPlace.geometry.location.lng(),
+        address: createDestPlace.formatted_address||createDestPlace.name||''
+      },
+      status:'pending', seq:createSeqVal,
+      createdAt:firebase.database.ServerValue.TIMESTAMP,
+      expireAt:Date.now()+24*60*60*1000
+    }).then(()=>{
+      document.getElementById('createSuccessId').textContent = orderId;
+      document.getElementById('createDriverLink').value  = `${BASE_URL}index.html?order=${orderId}`;
+      document.getElementById('createCustLink').value    = `${BASE_URL}track.html?order=${orderId}&openExternalBrowser=1`;
+      document.getElementById('createFormBody').style.display    = 'none';
+      document.getElementById('createSuccessBody').style.display = 'flex';
+      document.getElementById('createModalFoot').style.display   = 'none';
+      showToast(`✅ สร้าง Order ${orderId} สำเร็จ!`);
+    }).catch(e=>{ showToast('❌ '+e.message); btn.textContent='✅ สร้าง Order'; btn.disabled=false; });
+  }
+  function copyCreateLink(type) {
+    const val = type==='driver'
+      ? document.getElementById('createDriverLink').value
+      : document.getElementById('createCustLink').value;
+    if (navigator.clipboard) navigator.clipboard.writeText(val).then(()=>showToast('📋 Copy แล้ว!'));
+    else prompt('Copy:',val);
+  }
+  // ────────────────────────────────────────────────────
+
   function getStatus(o) {
     if (o.status === 'cancelled') return 'cancelled';
+    if (o.status === 'pending')   return 'pending';
     if (o.expireAt && Date.now() > o.expireAt) return 'expired';
     return o.status || 'delivering';
   }
@@ -673,8 +927,8 @@
   function cardHTML(id, o) {
     const q  = (document.getElementById('searchInput').value || '').toLowerCase();
     const st = getStatus(o);
-    const pillCls  = st==='arrived'?'pill-arrived':st==='expired'?'pill-expired':st==='cancelled'?'pill-cancelled':'pill-delivering';
-    const pillText = st==='arrived'?'✅ ส่งแล้ว':st==='expired'?'⏰ หมดอายุ':st==='cancelled'?'🚫 ยกเลิกแล้ว':'🚚 กำลังส่ง';
+    const pillCls  = st==='arrived'?'pill-arrived':st==='expired'?'pill-expired':st==='cancelled'?'pill-cancelled':st==='pending'?'pill-pending':'pill-delivering';
+    const pillText = st==='arrived'?'✅ ส่งแล้ว':st==='expired'?'⏰ หมดอายุ':st==='cancelled'?'🚫 ยกเลิกแล้ว':st==='pending'?'⏳ รอคนขับ':'🚚 กำลังส่ง';
     const created  = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
     const expires  = o.expireAt  ? new Date(o.expireAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
     const link = `${BASE_URL}track.html?order=${id}`;
