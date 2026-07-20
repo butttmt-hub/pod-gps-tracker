@@ -127,6 +127,39 @@
     .btn-pod    { font-size: 18px; font-weight: 800; padding: 20px; letter-spacing: 0.3px; border-radius: 16px; box-shadow: 0 6px 24px rgba(52,211,153,0.4); }
     .btn-pod-green { background: linear-gradient(135deg, #34d399, #059669); color: white; }
 
+    /* Done Screen */
+    .done-screen {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: linear-gradient(160deg, #064e3b 0%, #065f46 40%, #047857 100%);
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px 24px; text-align: center;
+    }
+    .done-screen.show { display: flex; }
+    .done-checkmark {
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: 3px solid rgba(255,255,255,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 52px; margin-bottom: 28px;
+      animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .done-title  { font-size: 32px; font-weight: 900; color: white; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .done-sub    { font-size: 15px; color: rgba(255,255,255,0.75); margin-bottom: 32px; }
+    .done-info-box {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 16px; padding: 18px 24px; width: 100%; max-width: 320px; margin-bottom: 32px;
+    }
+    .done-info-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+    .done-info-row + .done-info-row { border-top: 1px solid rgba(255,255,255,0.1); }
+    .done-info-label { font-size: 12px; color: rgba(255,255,255,0.6); }
+    .done-info-val   { font-size: 13px; font-weight: 700; color: white; }
+    .done-btn-new {
+      width: 100%; max-width: 320px; padding: 16px; border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 800; cursor: pointer; font-family: 'Inter', sans-serif;
+      background: white; color: #065f46; letter-spacing: 0.2px; transition: opacity 0.2s;
+    }
+    .done-btn-new:hover { opacity: 0.9; }
+
     /* Link Box */
     .link-box { display: none; margin: 0 14px; padding: 10px 14px; background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.2); border-radius: 10px; }
     .link-label { font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
@@ -304,6 +337,28 @@
     <button class="btn-clear" onclick="clearLog()">ล้างทั้งหมด</button>
   </div>
   <div class="log-list" id="logList"><div class="log-empty">ยังไม่มีการ Check-in</div></div>
+</div>
+
+<!-- Done Screen -->
+<div class="done-screen" id="doneScreen">
+  <div class="done-checkmark">✅</div>
+  <div class="done-title">ส่งจบงานแล้ว!</div>
+  <div class="done-sub">งานนี้ส่งสำเร็จเรียบร้อย</div>
+  <div class="done-info-box">
+    <div class="done-info-row">
+      <span class="done-info-label">🗒️ Order</span>
+      <span class="done-info-val" id="doneOrderId">—</span>
+    </div>
+    <div class="done-info-row">
+      <span class="done-info-label">🕐 เวลาส่งถึง</span>
+      <span class="done-info-val" id="doneTime">—</span>
+    </div>
+    <div class="done-info-row">
+      <span class="done-info-label">📍 พิกัด</span>
+      <span class="done-info-val" id="doneCoords">—</span>
+    </div>
+  </div>
+  <button class="done-btn-new" onclick="resetForNewOrder()">🚀 เริ่มงานใหม่</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -616,16 +671,50 @@
       time:now.toLocaleTimeString('th-TH'),date:now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}),
       dest:destPlace?(destPlace.name||destPlace.formatted_address):null,eta:destPlace?document.getElementById('etaTime').textContent:null});
     renderLog();
-    showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
     if (orderActive) {
       db.ref(`orders/${orderId}/status`).set('arrived');
       db.ref(`orders/${orderId}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
       stopBroadcast();
       localStorage.removeItem(RESUME_KEY);
+      // แสดง Done Screen
+      const now2 = new Date();
+      document.getElementById('doneOrderId').textContent = orderId;
+      document.getElementById('doneTime').textContent    = now2.toLocaleTimeString('th-TH');
+      document.getElementById('doneCoords').textContent  = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      document.getElementById('doneScreen').classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    } else {
+      showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
     }
     if (map) new google.maps.Marker({position:{lat,lng},map,
       label:{text:String(checkInCount),color:'white',fontSize:'11px',fontWeight:'bold'},
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:'#f87171',fillOpacity:1,strokeColor:'white',strokeWeight:2}});
+  }
+
+  function resetForNewOrder() {
+    document.getElementById('doneScreen').classList.remove('show');
+    // reset state
+    orderActive = false; isPlannerOrder = false;
+    orderId = genOrderId();
+    document.getElementById('orderBadge').textContent = orderId;
+    document.getElementById('driverName').value  = '';
+    document.getElementById('driverPhone').value = '';
+    document.getElementById('driverPlate').value = '';
+    document.getElementById('destInput').value   = '';
+    document.getElementById('plannerBanner').style.display = 'none';
+    document.getElementById('linkBox').style.display       = 'none';
+    document.getElementById('btnStart').textContent  = '🚀 เริ่มงาน';
+    document.getElementById('btnStart').disabled     = false;
+    document.getElementById('btnGMaps').disabled     = true;
+    document.getElementById('btnLink').disabled      = true;
+    document.getElementById('btnPOD').disabled       = true;
+    document.getElementById('btnClearDest').style.display = 'none';
+    destPlace = null; customerLink = '';
+    logs = []; checkInCount = 0; broadcastCount = 0;
+    renderLog();
+    setChip('chipGPS','idle','GPS: รอ...');
+    setChip('chipFB','idle','Firebase: —');
+    showToast('🚀 พร้อมเริ่มงานใหม่!');
   }
 
   function haversine(la1,lo1,la2,lo2) {
