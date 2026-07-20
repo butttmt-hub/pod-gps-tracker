@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>ติดตามการจัดส่ง</title>
+  <title>POD GPS Tracker · Driver</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -26,227 +26,286 @@
       --text:    #1a1d27; --muted:   #8892a4; --muted2: #5a6480;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
-
-    /* Loading Screen */
-    .loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; z-index: 100; }
-    .loading-logo   { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 32px rgba(79,142,247,0.4); }
-    .loading-text   { font-size: 14px; font-weight: 700; color: var(--muted2); }
-    .loading-dots   { display: flex; gap: 6px; }
-    .loading-dot    { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
-    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
-    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1.1);opacity:1} }
-
-    /* Error Screen */
-    .error-screen { display: none; position: fixed; inset: 0; background: var(--bg); flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; gap: 12px; z-index: 100; }
-    .error-icon  { font-size: 56px; margin-bottom: 6px; }
-    .error-title { font-size: 20px; font-weight: 800; }
-    .error-msg   { font-size: 14px; color: var(--muted2); line-height: 1.6; }
-    .error-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .error-badge { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.2); border-radius: 20px; padding: 4px 14px; font-size: 11px; font-weight: 700; color: var(--red); }
-
-    /* Main Content */
-    #mainContent { display: none; flex-direction: column; flex: 1; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
     /* Header */
     .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 14px; height: 56px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 50; }
-    .header-logo  { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .header-logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
     .header-title { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
     .header-sub   { font-size: 10px; color: var(--muted); }
-    .live-pill    { margin-left: auto; display: flex; align-items: center; gap: 5px; background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.25); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: var(--green); }
-    .live-dot     { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
-    .btn-theme { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0; transition: background 0.2s; margin-left: 6px; }
+    .order-badge  { margin-left: auto; background: rgba(79,142,247,0.15); border: 1px solid rgba(79,142,247,0.3); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: var(--accent); white-space: nowrap; flex-shrink: 0; }
+    .btn-theme { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0; transition: background 0.2s; }
+
+    /* Driver Card */
+    .driver-card { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .driver-card-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; font-size: 12px; font-weight: 700; color: var(--muted2); user-select: none; }
+    .driver-card-body { padding: 10px 14px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .driver-card-body.hidden { display: none; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group input { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 13px; color: var(--text); outline: none; font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
+    .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
+    .form-group input::placeholder { color: var(--muted); }
+
+    /* Status Bar */
+    .status-bar { display: flex; gap: 6px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .status-chip { display: flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px; font-size: 10px; font-weight: 600; color: var(--muted); flex: 1; justify-content: center; }
+    .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .status-chip.good .dot { background: var(--green); animation: pulse 1.5s infinite; }
+    .status-chip.good { color: var(--green); border-color: rgba(52,211,153,0.25); background: rgba(52,211,153,0.08); }
+    .status-chip.warn .dot { background: var(--orange); }
+    .status-chip.warn { color: var(--orange); border-color: rgba(251,146,60,0.25); background: rgba(251,146,60,0.08); }
+    .status-chip.bad  .dot { background: var(--red); }
+    .status-chip.bad  { color: var(--red); border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.08); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    /* Status Banner */
-    .status-banner { padding: 10px 14px; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 800; border-bottom: 1px solid var(--border); }
-    .status-banner.delivering { background: rgba(79,142,247,0.1); border-left: 3px solid var(--accent); color: var(--accent); }
-    .status-banner.nearby     { background: rgba(251,146,60,0.1);  border-left: 3px solid var(--orange); color: var(--orange); }
-    .status-banner.arrived    { background: rgba(52,211,153,0.1);  border-left: 3px solid var(--green);  color: var(--green); }
-    .status-banner.cancelled  { background: rgba(248,113,113,0.1); border-left: 3px solid var(--red);   color: var(--red); }
-    .status-icon  { font-size: 22px; }
-    .status-sub   { font-size: 11px; font-weight: 500; color: var(--muted2); margin-top: 2px; }
+    /* Mode Toggle */
+    .dest-mode-toggle { background: var(--surface); padding: 8px 14px; display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+    .mode-btn { flex: 1; padding: 7px; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface2); cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
+    .mode-btn.active { border-color: rgba(79,142,247,0.4); background: rgba(79,142,247,0.12); color: var(--accent); }
+
+    /* Destination */
+    .dest-section { background: var(--surface); padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+    .dest-label { font-size: 11px; font-weight: 700; color: var(--red); white-space: nowrap; }
+    #destInput { flex: 1; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--text); outline: none; font-family: 'Inter', sans-serif; }
+    #destInput:focus { border-color: var(--accent); }
+    #destInput::placeholder { color: var(--muted); }
+    .btn-x { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--muted); display: none; padding: 0 2px; }
+
+    /* Coords */
+    .coords-section { display: none; background: var(--surface); padding: 8px 14px 10px; border-bottom: 1px solid var(--border); gap: 8px; align-items: flex-end; }
+    .coords-section.show { display: flex; }
+    .coords-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .coords-field label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .coords-field input { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--text); outline: none; font-family: 'Inter', sans-serif; }
+    .coords-field input:focus { border-color: var(--accent); }
+    .coords-field input::placeholder { color: var(--muted); }
+    .btn-confirm-coords { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; border: none; border-radius: 8px; padding: 9px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; }
+    .coords-hint { font-size: 10px; color: var(--muted); padding: 6px 14px 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
 
     /* Map */
-    #map { height: 260px; background: var(--surface2); position: relative; flex-shrink: 0; }
-    .map-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: var(--muted); font-size: 13px; }
+    #map { height: 280px; background: var(--surface2); position: relative; flex-shrink: 0; }
+    .map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); gap: 8px; font-size: 13px; text-align: center; }
+    .map-placeholder .icon { font-size: 34px; opacity: 0.4; }
 
     /* ETA Banner */
-    .eta-banner { display: none; background: rgba(79,142,247,0.1); border-top: 2px solid rgba(79,142,247,0.3); border-bottom: 1px solid var(--border); padding: 12px 14px; flex-direction: row; align-items: center; gap: 12px; }
+    .eta-banner { display: none; background: rgba(79,142,247,0.1); border-top: 2px solid rgba(79,142,247,0.3); border-bottom: 1px solid var(--border); padding: 10px 14px; flex-direction: row; align-items: center; gap: 12px; }
     .eta-banner.show { display: flex; }
-    .eta-icon    { font-size: 24px; }
-    .eta-time    { font-size: 22px; font-weight: 800; color: var(--accent); }
-    .eta-arrival { font-size: 12px; color: var(--muted2); font-weight: 600; margin-top: 2px; }
+    .eta-time    { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .eta-arrival { font-size: 12px; font-weight: 600; color: var(--muted2); margin-top: 2px; }
     .eta-dist-val  { font-size: 15px; font-weight: 700; color: var(--text); text-align: right; }
     .eta-dist-unit { font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
 
-    /* Cards */
-    .cards-area { padding: 10px 14px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .card-header { padding: 10px 14px 0; }
-    .card-title  { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .card-body   { padding: 8px 14px 12px; }
-    .driver-name  { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
-    .driver-meta  { display: flex; gap: 6px; flex-wrap: wrap; }
-    .meta-chip    { display: flex; align-items: center; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--muted2); }
+    /* 10km Alert */
+    .nearby-alert { display: none; background: rgba(251,146,60,0.1); border-left: 3px solid var(--orange); padding: 9px 14px; font-size: 12px; font-weight: 700; color: var(--orange); align-items: center; gap: 8px; }
+    .nearby-alert.show { display: flex; }
+    .blink { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: pulse 0.8s infinite; flex-shrink: 0; }
 
-    .update-row { display: flex; align-items: center; gap: 10px; }
-    .update-dot { width: 38px; height: 38px; border-radius: 10px; background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.2); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-    .update-val { font-size: 11px; color: var(--muted2); }
-    .update-val b { color: var(--text); font-size: 13px; display: block; font-weight: 700; margin-bottom: 2px; }
+    /* Info Grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 14px; background: var(--bg); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .card.full { grid-column: 1 / -1; }
+    .card-label { font-size: 9px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .card-value { font-size: 13px; font-weight: 700; color: var(--text); word-break: break-all; }
+    .card-value.sm { font-size: 11px; }
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+    .acc-good { background: rgba(52,211,153,0.15); color: var(--green); }
+    .acc-warn { background: rgba(251,146,60,0.15); color: var(--orange); }
+    .acc-bad  { background: rgba(248,113,113,0.15); color: var(--red); }
+    .dist-near { color: var(--red); font-weight: 800; }
 
-    .order-id-val { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
-    .order-id-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    /* Action Area */
+    .action-area { padding: 12px 14px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn { width: 100%; padding: 13px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: 'Inter', sans-serif; transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.2px; }
+    .btn:active { transform: scale(0.97); } .btn:hover { opacity: 0.88; }
+    .btn:disabled { opacity: 0.3 !important; cursor: not-allowed; }
+    .btn-blue   { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; box-shadow: 0 4px 16px rgba(79,142,247,0.3); }
+    .btn-green  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+    .btn-orange { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.25); }
+    .btn-pod    { font-size: 14px; padding: 15px; }
 
-    /* State Banners */
-    .state-banner { display: none; border-radius: 12px; padding: 18px; text-align: center; }
-    .state-banner.show { display: block; }
-    .state-banner .s-icon  { font-size: 36px; margin-bottom: 6px; }
-    .state-banner .s-title { font-size: 16px; font-weight: 800; }
-    .state-banner .s-sub   { font-size: 12px; color: var(--muted2); margin-top: 4px; }
-    .state-banner.green { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); }
-    .state-banner.green .s-title { color: var(--green); }
-    .state-banner.red   { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2); }
-    .state-banner.red   .s-title { color: var(--red); }
+    /* Link Box */
+    .link-box { display: none; margin: 0 14px; padding: 10px 14px; background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.2); border-radius: 10px; }
+    .link-label { font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+    .link-url { font-size: 11px; color: var(--muted2); word-break: break-all; font-family: monospace; }
 
-    footer { text-align: center; padding: 20px 14px 32px; font-size: 11px; color: var(--muted); }
+    /* Log */
+    .log-section { margin: 10px 14px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .log-header { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .log-title  { font-size: 11px; font-weight: 700; color: var(--muted2); }
+    .btn-clear  { font-size: 11px; color: var(--red); background: none; border: none; cursor: pointer; font-weight: 600; font-family: 'Inter', sans-serif; }
+    .log-list   { max-height: 160px; overflow-y: auto; }
+    .log-item   { display: flex; align-items: flex-start; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .log-num    { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .log-coords { font-size: 11px; font-weight: 600; color: var(--text); }
+    .log-meta   { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .log-empty  { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; }
 
-    /* LINE WebView Banner */
-    .line-banner {
-      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 999;
-      background: linear-gradient(135deg, #06C755, #04a847);
-      padding: 10px 14px; flex-direction: column; gap: 4px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    }
-    .line-banner.show { display: flex; }
-    .line-banner-title { font-size: 13px; font-weight: 800; color: white; display: flex; align-items: center; gap: 6px; }
-    .line-banner-sub   { font-size: 11px; color: rgba(255,255,255,0.85); }
-    .line-banner-btn   {
-      margin-top: 6px; background: white; color: #06C755; border: none;
-      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 800;
-      cursor: pointer; font-family: 'Inter', sans-serif; align-self: flex-start;
-    }
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(30,35,50,0.95); backdrop-filter: blur(12px); border: 1px solid var(--border); color: var(--text); padding: 9px 20px; border-radius: 30px; font-size: 12px; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .toast.show { opacity: 1; }
+    .pac-container { z-index: 9999 !important; background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; }
+    .pac-item { color: var(--text) !important; background: var(--surface) !important; padding: 8px 12px !important; }
+    .pac-item:hover { background: var(--surface2) !important; }
+    .pac-item-query { color: var(--accent) !important; }
   </style>
 </head>
 <body class="light">
 
-<!-- LINE WebView Banner -->
-<div class="line-banner" id="lineBanner">
-  <div class="line-banner-title">⚠️ กรุณาเปิดในเบราว์เซอร์</div>
-  <div class="line-banner-sub">LINE Browser ไม่รองรับการแสดงตำแหน่ง real-time<br>กรุณาเปิดลิงค์นี้ใน Chrome หรือ Safari</div>
-  <button class="line-banner-btn" onclick="openInBrowser()">🌐 เปิดใน Browser</button>
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">📦</div>
+  <div>
+    <div class="header-title">POD GPS Tracker</div>
+    <div class="header-sub">Driver App</div>
+  </div>
+  <div class="order-badge" id="orderBadge">—</div>
+  <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="สลับโหมด">☀️</button>
 </div>
 
-<!-- Loading Screen -->
-<div class="loading-screen" id="loadingScreen">
-  <div class="loading-logo">📦</div>
-  <div class="loading-text">กำลังโหลดข้อมูลการจัดส่ง...</div>
-  <div class="loading-dots">
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
-    <div class="loading-dot"></div>
+<!-- Planner Order Banner (แสดงเมื่อเปิดด้วย ?order= จาก Planner) -->
+<div id="plannerBanner" style="display:none;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,108,247,0.08));border:1px solid rgba(79,142,247,0.25);border-left:3px solid var(--accent);border-radius:12px;margin:10px 14px;padding:12px 14px;">
+  <div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">📋 งานจาก Planner</div>
+  <div id="plannerSeqText" style="font-size:14px;font-weight:800"></div>
+  <div id="plannerCustText" style="font-size:12px;color:var(--muted2);margin-top:2px"></div>
+  <div id="plannerDestText" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+</div>
+
+<!-- Driver Info Card -->
+<div class="driver-card">
+  <div class="driver-card-header" onclick="toggleDriverCard()">
+    <span>👤 ข้อมูลพนักงานส่ง</span>
+    <span id="driverToggleIcon" style="color:var(--muted)">▼</span>
+  </div>
+  <div class="driver-card-body" id="driverCardBody">
+    <div class="form-group">
+      <label>ชื่อพนักงาน</label>
+      <input id="driverName" type="text" placeholder="ชื่อ-นามสกุล" />
+    </div>
+    <div class="form-group">
+      <label>เบอร์โทร</label>
+      <input id="driverPhone" type="tel" placeholder="0812345678" />
+    </div>
+    <div class="form-group full">
+      <label>ทะเบียนรถ</label>
+      <input id="driverPlate" type="text" placeholder="กข 1234 กรุงเทพ" />
+    </div>
   </div>
 </div>
 
-<!-- Error Screen -->
-<div class="error-screen" id="errorScreen">
-  <div class="error-icon"  id="errIcon">❌</div>
-  <div class="error-badge" id="errBadge">ไม่พบข้อมูล</div>
-  <div class="error-title" id="errTitle">เกิดข้อผิดพลาด</div>
-  <div class="error-msg"   id="errMsg"></div>
-  <div class="error-sub"   id="errSub"></div>
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="status-chip" id="chipGPS"><div class="dot"></div><span>GPS: รอ</span></div>
+  <div class="status-chip" id="chipMap"><div class="dot"></div><span>แผนที่: โหลด</span></div>
+  <div class="status-chip" id="chipFB" ><div class="dot"></div><span>Firebase: —</span></div>
 </div>
 
-<!-- Main Content -->
-<div id="mainContent">
-  <div class="header">
-    <div class="header-logo">📦</div>
-    <div>
-      <div class="header-title">ติดตามการจัดส่ง</div>
-      <div class="header-sub">POD GPS Tracker</div>
-    </div>
-    <div class="live-pill"><div class="live-dot"></div>Live</div>
-    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="สลับโหมด">☀️</button>
-  </div>
-
-  <div class="status-banner delivering" id="statusBanner">
-    <div class="status-icon" id="statusIcon">🚚</div>
-    <div>
-      <div id="statusTitle">กำลังจัดส่ง</div>
-      <div class="status-sub" id="statusSub">รอรับตำแหน่ง GPS จากคนขับ...</div>
-    </div>
-  </div>
-
-  <div id="map">
-    <div class="map-loading" id="mapLoading"><span style="font-size:30px">🗺️</span><span>รอตำแหน่งคนขับ...</span></div>
-  </div>
-
-  <div class="eta-banner" id="etaBanner">
-    <div class="eta-icon">🚗</div>
-    <div style="flex:1">
-      <div class="eta-time" id="etaTime">—</div>
-      <div class="eta-arrival" id="etaSub">คำนวณเส้นทาง...</div>
-    </div>
-    <div>
-      <div class="eta-dist-val"  id="etaDist">—</div>
-      <div class="eta-dist-unit">ระยะทาง</div>
-    </div>
-  </div>
-
-  <div class="cards-area">
-    <div class="card">
-      <div class="card-header"><div class="card-title">👤 ข้อมูลพนักงานส่ง</div></div>
-      <div class="card-body">
-        <div class="driver-name" id="driverName">—</div>
-        <div class="driver-meta">
-          <div class="meta-chip">📞 <span id="driverPhone">—</span></div>
-          <div class="meta-chip">🚙 <span id="driverPlate">—</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><div class="card-title">📦 เลขที่คำสั่งซื้อ</div></div>
-      <div class="card-body">
-        <div class="order-id-val" id="displayOrderId">—</div>
-        <div class="order-id-sub" id="orderCreated">—</div>
-      </div>
-    </div>
-
-    <div class="state-banner green" id="arrivedBanner">
-      <div class="s-icon">✅</div>
-      <div class="s-title">ส่งสินค้าถึงแล้ว!</div>
-      <div class="s-sub">พนักงานส่งมาถึงที่นัดหมายเรียบร้อยแล้ว</div>
-    </div>
-
-    <div class="state-banner red" id="cancelledBanner">
-      <div class="s-icon">🚫</div>
-      <div class="s-title">Order ถูกยกเลิก</div>
-      <div class="s-sub">Order นี้ถูกยกเลิกโดยผู้จัดการ กรุณาติดต่อเพื่อสอบถาม</div>
-    </div>
-
-    <div class="card" id="updateCard">
-      <div class="card-header"><div class="card-title">📡 อัพเดตล่าสุด</div></div>
-      <div class="card-body">
-        <div class="update-row">
-          <div class="update-dot">📍</div>
-          <div class="update-val"><b id="updateCoords">รอสัญญาณ...</b>ตำแหน่ง GPS</div>
-        </div>
-        <div class="update-row" style="margin-top:8px">
-          <div class="update-dot">🕐</div>
-          <div class="update-val"><b id="updateTime">—</b>เวลาอัพเดต</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- DEBUG PANEL — ลบออกหลัง fix สำเร็จ -->
-  <div id="debugPanel" style="font-size:10px;color:#666;padding:6px 12px;word-break:break-all;background:#f0f0f0;border-top:1px solid #ddd;">⏳ รอ REST poll...</div>
-
-  <footer>ข้อมูลอัพเดต real-time ผ่าน Firebase · ลิงก์หมดอายุใน 24 ชั่วโมง</footer>
+<!-- Mode Toggle -->
+<div class="dest-mode-toggle">
+  <button class="mode-btn active" id="modeSearch" onclick="switchMode('search')">🔍 ค้นหาชื่อ/ที่อยู่</button>
+  <button class="mode-btn"        id="modeCoords" onclick="switchMode('coords')">📌 กรอกพิกัด Lat/Lng</button>
 </div>
+
+<!-- Destination Search -->
+<div class="dest-section" id="searchSection">
+  <div class="dest-label">🏪 ปลายทาง</div>
+  <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
+  <button class="btn-x" id="btnClearDest" onclick="clearDestination()">✕</button>
+</div>
+
+<!-- Coords Input -->
+<div class="coords-section" id="coordsSection">
+  <div class="coords-field">
+    <label>Latitude</label>
+    <input id="inputLat" type="number" step="any" placeholder="13.7563" />
+  </div>
+  <div class="coords-field">
+    <label>Longitude</label>
+    <input id="inputLng" type="number" step="any" placeholder="100.5018" />
+  </div>
+  <button class="btn-confirm-coords" onclick="confirmCoords()">📌 ปัก</button>
+</div>
+<div class="coords-hint" id="coordsHint" style="display:none">💡 วาง "lat, lng" แล้วกด ปัก — หรือรับพิกัดจาก Google Maps / Line Location</div>
+
+<!-- Map -->
+<div id="map">
+  <div class="map-placeholder" id="mapPlaceholder">
+    <div class="icon">🗺️</div>
+    <div>กำลังโหลดแผนที่...</div>
+  </div>
+</div>
+
+<!-- ETA Banner -->
+<div class="eta-banner" id="etaBanner">
+  <div style="font-size:22px">🚗</div>
+  <div style="flex:1">
+    <div class="eta-time" id="etaTime">—</div>
+    <div class="eta-arrival" id="etaSub">คำนวณเส้นทาง...</div>
+  </div>
+  <div>
+    <div class="eta-dist-val" id="etaDist">—</div>
+    <div class="eta-dist-unit">ระยะทาง</div>
+  </div>
+</div>
+
+<!-- 10km Alert -->
+<div class="nearby-alert" id="nearbyAlert">
+  <div class="blink"></div>
+  <span>ใกล้ถึงแล้ว! กำลัง Broadcast ตำแหน่งให้ลูกค้า real-time</span>
+</div>
+
+<!-- Info Cards -->
+<div class="info-grid">
+  <div class="card"><div class="card-label">📍 Latitude</div><div class="card-value" id="valLat">—</div></div>
+  <div class="card"><div class="card-label">📍 Longitude</div><div class="card-value" id="valLng">—</div></div>
+  <div class="card"><div class="card-label">🎯 Accuracy</div><div class="card-value" id="valAcc">—</div></div>
+  <div class="card"><div class="card-label">🕐 เวลา</div><div class="card-value sm" id="valTime">—</div></div>
+  <div class="card"><div class="card-label">📏 ระยะถึงลูกค้า</div><div class="card-value" id="valDist">—</div></div>
+  <div class="card"><div class="card-label">📡 สถานะ</div><div class="card-value sm" id="valStatus">รอ GPS...</div></div>
+</div>
+
+<!-- Resume Dialog -->
+<div id="resumeDialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:200;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;width:100%;max-width:340px;box-shadow:0 24px 60px rgba(0,0,0,0.5)">
+    <div style="font-size:32px;text-align:center;margin-bottom:10px">📦</div>
+    <div style="font-size:15px;font-weight:800;text-align:center;margin-bottom:6px">มี Order ค้างอยู่</div>
+    <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:14px">พบ Order ที่ยังไม่เสร็จ อยากกลับไปต่อมั้ย?</div>
+    <div id="resumeInfo" style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--accent);font-weight:600;line-height:1.7"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="discardResume()" style="flex:1;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">เริ่มใหม่</button>
+      <button onclick="doResume()"      style="flex:1;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">กลับ Order เดิม ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- Action Area -->
+<div class="action-area">
+  <button class="btn btn-blue" id="btnStart" onclick="startOrder()">🚀 เริ่มการส่ง / สร้าง Order</button>
+  <div class="btn-row">
+    <button class="btn btn-green"  id="btnGMaps" onclick="openGoogleMaps()"   disabled>🗺️ Google Maps</button>
+    <button class="btn btn-orange" id="btnLink"  onclick="copyCustomerLink()" disabled>📋 Link ลูกค้า</button>
+  </div>
+  <button class="btn btn-blue btn-pod" id="btnPOD" onclick="checkIn()" disabled>✅ บันทึก POD (Check-in)</button>
+</div>
+
+<!-- Customer Link -->
+<div class="link-box" id="linkBox">
+  <div class="link-label">🔗 Link สำหรับส่งให้ลูกค้า (กด "📋 Link ลูกค้า" เพื่อคัดลอก)</div>
+  <div class="link-url" id="linkUrl">—</div>
+</div>
+
+<!-- Log -->
+<div class="log-section">
+  <div class="log-header">
+    <span class="log-title">📋 ประวัติ Check-in</span>
+    <button class="btn-clear" onclick="clearLog()">ล้างทั้งหมด</button>
+  </div>
+  <div class="log-list" id="logList"><div class="log-empty">ยังไม่มีการ Check-in</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
   firebase.initializeApp({
@@ -259,196 +318,410 @@
     appId: "1:423417745590:web:2a90c40b718fce6d61d617"
   });
   const db = firebase.database();
+  db.ref('.info/connected').on('value', s => setChip('chipFB', s.val()?'good':'warn', s.val()?'Firebase: ✓':'Firebase: —'));
 
-  const params  = new URLSearchParams(window.location.search);
-  const orderId = params.get('order');
-  let map, driverMarker, customerMarker, dirService, dirRenderer;
-  let lastDriverPos = null, customerPos = null, lastRouteCalc = 0;
-  const ETA_THROTTLE = 15000;
-
-  function showError(icon, title, msg, sub2) {
-    document.getElementById('loadingScreen').style.display = 'none';
-    document.getElementById('mainContent').style.display   = 'none';
-    const es = document.getElementById('errorScreen');
-    es.style.display = 'flex';
-    document.getElementById('errIcon').textContent  = icon  || '❌';
-    document.getElementById('errTitle').textContent = title || 'เกิดข้อผิดพลาด';
-    document.getElementById('errMsg').textContent   = msg   || '';
-    document.getElementById('errSub').textContent   = sub2  || '';
-    document.getElementById('errBadge').textContent = title || 'Error';
-  }
+  let map, myMarker, accCircle, destMarker, dirService, dirRenderer;
+  let currentPos = null, destPlace = null;
+  let orderId = genOrderId(), orderActive = false, isPlannerOrder = false;
+  let broadcastTimer = null, lastRouteCalc = 0;
+  let checkInCount = 0, logs = [], customerLink = '';
+  document.getElementById('orderBadge').textContent = orderId;
 
   function initMap() {
+    const ph = document.getElementById('mapPlaceholder');
     map = new google.maps.Map(document.getElementById('map'), {
       zoom:14, center:{lat:13.7563,lng:100.5018}, mapTypeId:'roadmap',
       disableDefaultUI:true, zoomControl:true, gestureHandling:'greedy'
     });
+    if (ph) ph.style.display = 'none';
+    setChip('chipMap','good','แผนที่: พร้อม');
     dirService  = new google.maps.DirectionsService();
     dirRenderer = new google.maps.DirectionsRenderer({
       map, suppressMarkers:true,
       polylineOptions:{strokeColor:'#4f8ef7',strokeWeight:5,strokeOpacity:0.8}
     });
-    loadOrder();
-  }
-
-  function loadOrder() {
-    if (!orderId) { showError('❓','ไม่พบ Order','ไม่มี Order ID ใน Link นี้','ขอ Link ใหม่จากพนักงานส่งสินค้า'); return; }
-
-    // Main real-time listener (WebSocket) — works in normal browsers
-    db.ref('orders/' + orderId).on('value', snap => {
-      if (!snap.exists()) { showError('🔍','ไม่พบ Order','ไม่พบข้อมูล Order ID: ' + orderId,'กรุณาตรวจสอบ Link อีกครั้ง'); return; }
-      const data = snap.val();
-      if (data.expireAt && Date.now() > data.expireAt) { showError('⏰','Link หมดอายุ','Link นี้หมดอายุแล้ว (24 ชั่วโมงหลังส่งสินค้า)','ขอ Link ใหม่จากพนักงานได้เลย'); return; }
-      document.getElementById('loadingScreen').style.display = 'none';
-      document.getElementById('mainContent').style.display   = 'flex';
-      updateUI(data);
+    const ac = new google.maps.places.Autocomplete(
+      document.getElementById('destInput'),
+      {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}}
+    );
+    ac.addListener('place_changed', () => {
+      const p = ac.getPlace(); if (!p.geometry) return;
+      destPlace = p;
+      document.getElementById('btnClearDest').style.display = 'block';
+      document.getElementById('btnGMaps').disabled = false;
+      placeDestMarker(p.geometry.location);
+      if (currentPos) calcRoute();
     });
-
-    // REST API polling — pure HTTP fetch, ทำงานได้แม้ WebSocket ถูกบล็อค (LINE WebView, etc.)
-    const REST = 'https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app';
-    function pollREST() {
-      // Fetch full order (รวม location) ด้วย request เดียว
-      fetch(`${REST}/orders/${orderId}.json`)
-        .then(r => r.json())
-        .then(data => {
-          const dbg = document.getElementById('debugPanel');
-          if (!data) {
-            if (dbg) dbg.textContent = '🔍 REST: null — ไม่มีข้อมูล Order';
-            return;
-          }
-          if (data.expireAt && Date.now() > data.expireAt) {
-            if (dbg) dbg.textContent = '⏰ REST: Order หมดอายุแล้ว';
-            return;
-          }
-          // Show content ก่อน (กรณี WebSocket ไม่ทำงาน loadingScreen ยังขึ้นอยู่)
-          document.getElementById('loadingScreen').style.display = 'none';
-          document.getElementById('mainContent').style.display   = 'flex';
-          updateUI(data);
-          // Render map ด้วย location จาก full order snapshot
-          const loc = data.location;
-          if (dbg) {
-            dbg.textContent = loc
-              ? `🔍 REST ✓ lat:${loc.lat?.toFixed(5)} lng:${loc.lng?.toFixed(5)} @ ${new Date().toLocaleTimeString('th-TH')}`
-              : `🔍 REST: location=null (คนขับยังไม่ได้ broadcast) @ ${new Date().toLocaleTimeString('th-TH')}`;
-          }
-          if (loc && loc.lat && loc.lng && data.status !== 'arrived' && data.status !== 'cancelled') {
-            renderMap(loc);
-          }
-        })
-        .catch(e => {
-          const dbg = document.getElementById('debugPanel');
-          if (dbg) dbg.textContent = '❌ REST Error: ' + e;
-        });
-    }
-    pollREST(); // ดึงทันทีตอนเปิดหน้า
-    setInterval(pollREST, 10000); // แล้วดึงซ้ำทุก 10 วินาที
+    if (currentPos) updateMyPin(currentPos);
+    checkPlannerOrder(); // ตรวจสอบ ?order= จาก URL
   }
 
-  function updateUI(data) {
-    if (data.driver) {
-      document.getElementById('driverName').textContent  = data.driver.name  || '—';
-      document.getElementById('driverPhone').textContent = data.driver.phone || '—';
-      document.getElementById('driverPlate').textContent = data.driver.plate || '—';
-    }
-    document.getElementById('displayOrderId').textContent = orderId || '—';
-    if (data.createdAt) {
-      const d = new Date(data.createdAt);
-      document.getElementById('orderCreated').textContent = 'สร้างเมื่อ ' + d.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    }
-    if (data.eta && data.etaDistance) {
-      document.getElementById('etaTime').textContent = data.eta;
-      document.getElementById('etaDist').textContent = data.etaDistance;
-      if (data.etaArrival) document.getElementById('etaSub').textContent = 'ถึงประมาณ ' + data.etaArrival;
-      document.getElementById('etaBanner').classList.add('show');
-    }
-    if (data.customer) {
-      customerPos = {lat: data.customer.lat, lng: data.customer.lng};
-      if (map && !customerMarker) {
-        customerMarker = new google.maps.Marker({position:customerPos, map, zIndex:20,
-          icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          animation:google.maps.Animation.DROP});
+  function checkPlannerOrder() {
+    const urlOrder = new URLSearchParams(window.location.search).get('order');
+    if (!urlOrder) return;
+    orderId = urlOrder;
+    isPlannerOrder = true;
+    document.getElementById('orderBadge').textContent = orderId;
+    db.ref('orders/'+urlOrder).once('value').then(snap => {
+      if (!snap.exists()) { showToast('⚠️ ไม่พบ Order '+urlOrder); return; }
+      const data = snap.val();
+      if (data.driver) {
+        document.getElementById('driverName').value  = data.driver.name  || '';
+        document.getElementById('driverPhone').value = data.driver.phone || '';
+        document.getElementById('driverPlate').value = data.driver.plate || '';
       }
-    }
-    if (data.status) setStatus(data.status);
-    if (data.location && data.status !== 'arrived' && data.status !== 'cancelled') renderMap(data.location);
+      // แสดง banner
+      document.getElementById('plannerBanner').style.display = 'block';
+      document.getElementById('plannerSeqText').textContent  = `งานที่ ${data.seq||'—'} · ${urlOrder}`;
+      const ci = [data.customer?.name, data.customer?.phone?'📞 '+data.customer.phone:''].filter(Boolean).join(' · ');
+      document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
+      document.getElementById('plannerDestText').textContent = data.customer?.address ? '📍 '+data.customer.address : '';
+      document.getElementById('btnStart').textContent = `🚀 เริ่มงานที่ ${data.seq||1}`;
+      // Auto-set destination
+      if (data.customer?.lat && data.customer?.lng) {
+        const loc = new google.maps.LatLng(data.customer.lat, data.customer.lng);
+        destPlace = {geometry:{location:loc}, name:data.customer.name||'', formatted_address:data.customer.address||''};
+        document.getElementById('destInput').value = data.customer.address || data.customer.name || '';
+        document.getElementById('btnClearDest').style.display = 'block';
+        document.getElementById('btnGMaps').disabled = false;
+        placeDestMarker(loc);
+        if (currentPos) calcRoute();
+      }
+      // Customer link พร้อมใช้ทันที
+      const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
+      customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
+      document.getElementById('linkUrl').textContent = customerLink;
+      document.getElementById('linkBox').style.display = 'block';
+      document.getElementById('btnLink').disabled = false;
+      // ถ้า order กำลัง delivering อยู่แล้ว → resume
+      if (data.status === 'delivering') {
+        orderActive = true;
+        startBroadcast();
+        if (currentPos) broadcastNow();
+        document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+        document.getElementById('btnStart').disabled = true;
+        showToast(`🔄 Order ${urlOrder} กำลังดำเนินการ`);
+      }
+    }).catch(()=>showToast('❌ โหลด Order ไม่สำเร็จ'));
   }
 
-  function renderMap(loc) {
-    if (!map) return;
-    const pos = {lat: loc.lat, lng: loc.lng};
-    const mapLoadingEl = document.getElementById('mapLoading');
-    if (mapLoadingEl) mapLoadingEl.style.display = 'none';
-    if (!driverMarker) {
-      driverMarker = new google.maps.Marker({position:pos, map, zIndex:10,
-        icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale:6,
-          fillColor:'#4f8ef7', fillOpacity:1, strokeColor:'white', strokeWeight:2, rotation:0}});
-    } else { driverMarker.setPosition(pos); }
-    lastDriverPos = pos;
-    if (loc.timestamp) {
-      const t = new Date(loc.timestamp);
-      document.getElementById('updateCoords').textContent = loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5);
-      document.getElementById('updateTime').textContent   = t.toLocaleTimeString('th-TH');
+  function startGPS() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(onGPS, onGPSErr, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  }
+
+  function onGPS(pos) {
+    currentPos = pos;
+    const {latitude:lat, longitude:lng, accuracy:acc} = pos.coords;
+    document.getElementById('valLat').textContent  = lat.toFixed(7);
+    document.getElementById('valLng').textContent  = lng.toFixed(7);
+    document.getElementById('valTime').textContent = new Date().toLocaleTimeString('th-TH');
+    const acCls = acc<=20?'acc-good':acc<=50?'acc-warn':'acc-bad';
+    const acLbl = acc<=20?'🟢 ดี':acc<=50?'🟡 พอใช้':'🔴 ต่ำ';
+    document.getElementById('valAcc').innerHTML = `${Math.round(acc)}m<span class="badge ${acCls}">${acLbl}</span>`;
+    setChip('chipGPS', acc<=20?'good':acc<=50?'warn':'bad', `GPS: ±${Math.round(acc)}m`);
+    document.getElementById('valStatus').textContent = `✅ GPS ล็อค ±${Math.round(acc)}m`;
+    document.getElementById('valStatus').style.color = 'var(--green)';
+    document.getElementById('btnPOD').disabled = false;
+    if (map) updateMyPin(pos);
+    if (destPlace) {
+      const dLat = destPlace.geometry.location.lat(), dLng = destPlace.geometry.location.lng();
+      const dist = haversine(lat,lng,dLat,dLng);
+      const dTxt = dist<1?`${Math.round(dist*1000)} ม.`:`${dist.toFixed(1)} กม.`;
+      document.getElementById('valDist').innerHTML = dist<=10?`<span class="dist-near">${dTxt} 🔴</span>`:dTxt;
+      // แสดง nearby alert เมื่อใกล้ถึง แต่ไม่ผูก broadcast กับระยะแล้ว
+      if (dist<=10) document.getElementById('nearbyAlert').classList.add('show');
+      else          document.getElementById('nearbyAlert').classList.remove('show');
+      if (map) calcRoute();
     }
-    if (customerPos) {
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(pos); bounds.extend(customerPos);
-      map.fitBounds(bounds, {top:30,right:30,bottom:30,left:30});
-    }
-    calcRoute();
+    // broadcast ทุก GPS update เสมอ ไม่ว่าจะอยู่ไกลแค่ไหน
+    if (orderActive) broadcastNow();
+  }
+
+  function onGPSErr(err) {
+    const m = {1:'🚫 ไม่ได้รับอนุญาต',2:'📡 ไม่พบสัญญาณ',3:'⏱️ Timeout'};
+    document.getElementById('valStatus').textContent = m[err.code]||'❌ GPS Error';
+    setChip('chipGPS','bad','GPS: Error');
+  }
+
+  function updateMyPin(pos) {
+    const ll = {lat:pos.coords.latitude,lng:pos.coords.longitude};
+    if (!myMarker) {
+      myMarker = new google.maps.Marker({position:ll,map,zIndex:10,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:'#4f8ef7',fillOpacity:1,strokeColor:'white',strokeWeight:3}});
+      accCircle = new google.maps.Circle({map,center:ll,radius:pos.coords.accuracy,
+        fillColor:'#4f8ef7',fillOpacity:0.1,strokeColor:'#4f8ef7',strokeOpacity:0.3,strokeWeight:1});
+    } else { myMarker.setPosition(ll); accCircle.setCenter(ll); accCircle.setRadius(pos.coords.accuracy); }
+    if (!destPlace) map.panTo(ll);
+  }
+
+  function placeDestMarker(loc) {
+    if (destMarker) destMarker.setMap(null);
+    destMarker = new google.maps.Marker({position:loc,map,zIndex:20,
+      animation:google.maps.Animation.DROP,icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png'});
+    map.panTo(loc);
   }
 
   function calcRoute() {
-    if (!lastDriverPos || !customerPos) return;
+    if (!currentPos||!destPlace) return;
     const now = Date.now();
-    if (now - lastRouteCalc < ETA_THROTTLE) return;
+    if (now - lastRouteCalc < 30000) return;
     lastRouteCalc = now;
     dirService.route({
-      origin: lastDriverPos, destination: customerPos,
-      travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
-    }, (res, status) => {
-      if (status === 'OK') {
+      origin:{lat:currentPos.coords.latitude,lng:currentPos.coords.longitude},
+      destination:destPlace.geometry.location,
+      travelMode:google.maps.TravelMode.DRIVING,region:'TH'
+    }, (res,status) => {
+      if (status==='OK') {
         dirRenderer.setDirections(res);
-        const leg     = res.routes[0].legs[0];
-        const arrival = new Date(Date.now() + leg.duration.value * 1000);
-        const arrStr  = arrival.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) + ' น.';
+        const leg = res.routes[0].legs[0];
+        const arrival = new Date(Date.now()+leg.duration.value*1000);
+        const arrivalStr = arrival.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})+' น.';
         document.getElementById('etaTime').textContent = leg.duration.text;
         document.getElementById('etaDist').textContent = leg.distance.text;
-        document.getElementById('etaSub').textContent  = 'ถึงประมาณ ' + arrStr;
+        document.getElementById('etaSub').textContent  = `ถึงประมาณ ${arrivalStr}`;
         document.getElementById('etaBanner').classList.add('show');
+        if (orderActive) {
+          db.ref(`orders/${orderId}/eta`).set(leg.duration.text);
+          db.ref(`orders/${orderId}/etaDistance`).set(leg.distance.text);
+          db.ref(`orders/${orderId}/etaArrival`).set(arrivalStr);
+        }
       }
     });
   }
 
-  function setStatus(status) {
-    const banner    = document.getElementById('statusBanner');
-    const icon      = document.getElementById('statusIcon');
-    const title     = document.getElementById('statusTitle');
-    const sub       = document.getElementById('statusSub');
-    const arrived   = document.getElementById('arrivedBanner');
-    const cancelled = document.getElementById('cancelledBanner');
-    const update    = document.getElementById('updateCard');
-    banner.className = 'status-banner';
-    arrived.classList.remove('show');
-    cancelled.classList.remove('show');
-    if (status === 'delivering') {
-      banner.classList.add('delivering');
-      icon.textContent='🚚'; title.textContent='กำลังจัดส่ง'; sub.textContent='คนขับกำลังเดินทางมาหาคุณ';
-    } else if (status === 'nearby') {
-      banner.classList.add('nearby');
-      icon.textContent='📍'; title.textContent='ใกล้ถึงแล้ว!'; sub.textContent='รถกำลังเข้าใกล้ตำแหน่งของคุณ';
-    } else if (status === 'arrived') {
-      banner.classList.add('arrived');
-      icon.textContent='✅'; title.textContent='ถึงแล้ว!'; sub.textContent='พนักงานส่งมาถึงแล้ว กรุณารอรับสินค้า';
-      arrived.classList.add('show');
-      document.getElementById('etaBanner').classList.remove('show');
-      update.style.display = 'none';
-    } else if (status === 'cancelled') {
-      banner.classList.add('cancelled');
-      icon.textContent='🚫'; title.textContent='Order ถูกยกเลิก'; sub.textContent='กรุณาติดต่อผู้ดูแลเพื่อสอบถาม';
-      cancelled.classList.add('show');
-      document.getElementById('etaBanner').classList.remove('show');
-    }
+  function switchMode(mode) {
+    const isCoords = mode==='coords';
+    document.getElementById('modeSearch').classList.toggle('active',!isCoords);
+    document.getElementById('modeCoords').classList.toggle('active',isCoords);
+    document.getElementById('searchSection').style.display = isCoords?'none':'';
+    document.getElementById('coordsSection').classList.toggle('show',isCoords);
+    document.getElementById('coordsHint').style.display = isCoords?'block':'none';
+    if (!isCoords) clearDestination();
   }
+
+  function confirmCoords() {
+    const lat = parseFloat(document.getElementById('inputLat').value);
+    const lng = parseFloat(document.getElementById('inputLng').value);
+    if (isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180) { showToast('⚠️ พิกัดไม่ถูกต้อง'); return; }
+    const loc = new google.maps.LatLng(lat,lng);
+    new google.maps.Geocoder().geocode({location:loc}, (results,status) => {
+      const name = (status==='OK'&&results[0])?results[0].formatted_address:`${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      destPlace = {geometry:{location:loc},name,formatted_address:name};
+      placeDestMarker(loc);
+      document.getElementById('btnGMaps').disabled = false;
+      if (currentPos) calcRoute();
+      showToast(`📌 ปักหมุด: ${name.substring(0,30)}...`);
+    });
+  }
+
+  function clearDestination() {
+    destPlace = null;
+    document.getElementById('destInput').value = '';
+    document.getElementById('btnClearDest').style.display = 'none';
+    document.getElementById('btnGMaps').disabled = true;
+    document.getElementById('etaBanner').classList.remove('show');
+    document.getElementById('valDist').textContent = '—';
+    if (destMarker) { destMarker.setMap(null); destMarker = null; }
+    if (dirRenderer) dirRenderer.setDirections({routes:[]});
+    if (currentPos) map.panTo({lat:currentPos.coords.latitude,lng:currentPos.coords.longitude});
+  }
+
+  function startOrder() {
+    const name  = document.getElementById('driverName').value.trim();
+    const phone = document.getElementById('driverPhone').value.trim();
+    const plate = document.getElementById('driverPlate').value.trim();
+    if (!name||!phone||!plate) { showToast('⚠️ กรอกข้อมูลพนักงานให้ครบก่อน'); return; }
+    if (!destPlace)             { showToast('⚠️ เลือกปลายทางก่อน'); return; }
+    if (!currentPos)            { showToast('⚠️ รอ GPS ล็อคก่อน'); return; }
+    orderActive = true;
+    const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
+    customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
+    document.getElementById('linkUrl').textContent = customerLink;
+    document.getElementById('linkBox').style.display = 'block';
+    document.getElementById('btnLink').disabled = false;
+    if (isPlannerOrder) {
+      // order จาก Planner — อัพเดตเฉพาะ status (ไม่ overwrite ข้อมูลเดิม)
+      db.ref('orders/'+orderId+'/status').set('delivering');
+      db.ref('orders/'+orderId+'/startedAt').set(firebase.database.ServerValue.TIMESTAMP);
+      db.ref('orders/'+orderId+'/driver').set({name,phone,plate});
+    } else {
+      // order ปกติ — สร้างใหม่
+      db.ref(`orders/${orderId}`).set({
+        driver:{name,phone,plate},
+        customer:{lat:destPlace.geometry.location.lat(),lng:destPlace.geometry.location.lng(),name:destPlace.name||'',address:destPlace.formatted_address||''},
+        status:'delivering',
+        createdAt:firebase.database.ServerValue.TIMESTAMP,
+        expireAt:Date.now()+24*60*60*1000,
+        eta:document.getElementById('etaTime').textContent||'—',
+        etaDistance:document.getElementById('etaDist').textContent||'—'
+      });
+    }
+    // broadcast ทันทีและเริ่ม interval ทุก 10 วินาที
+    broadcastNow();
+    startBroadcast();
+    saveOrderToStorage();
+    document.getElementById('driverCardBody').classList.add('hidden');
+    document.getElementById('driverToggleIcon').textContent = '▶';
+    document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+    document.getElementById('btnStart').disabled = true;
+    showToast(`🚀 Order ${orderId} เริ่มแล้ว!`);
+  }
+
+  function startBroadcast() {
+    if (broadcastTimer) return;
+    // broadcast ทุก 10 วินาที ตลอดเวลา ไม่จำกัดระยะทาง
+    broadcastTimer = setInterval(broadcastNow, 15000);
+  }
+  function stopBroadcast() {
+    clearInterval(broadcastTimer); broadcastTimer = null;
+  }
+  let broadcastCount = 0;
+  function broadcastNow() {
+    if (!currentPos||!orderId||!orderActive) return;
+    db.ref(`orders/${orderId}/location`).set({
+      lat: currentPos.coords.latitude,
+      lng: currentPos.coords.longitude,
+      accuracy: currentPos.coords.accuracy,
+      timestamp: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+      broadcastCount++;
+      setChip('chipFB', 'good', `Firebase: 📡 #${broadcastCount}`);
+    }).catch(err => {
+      setChip('chipFB', 'bad', 'Firebase: ❌ Error');
+      console.error('broadcast error', err);
+    });
+  }
+
+  function openGoogleMaps() {
+    if (!destPlace) return;
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${destPlace.geometry.location.lat()},${destPlace.geometry.location.lng()}&travelmode=driving`;
+    if (currentPos) url += `&origin=${currentPos.coords.latitude},${currentPos.coords.longitude}`;
+    window.open(url,'_blank');
+  }
+
+  function copyCustomerLink() {
+    if (!customerLink) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(customerLink).then(()=>showToast('📋 คัดลอก Link แล้ว!'));
+    else prompt('คัดลอก Link นี้:',customerLink);
+  }
+
+  function checkIn() {
+    if (!currentPos) return;
+    checkInCount++;
+    const {latitude:lat,longitude:lng,accuracy:acc} = currentPos.coords;
+    const now = new Date();
+    logs.unshift({num:checkInCount,lat:lat.toFixed(7),lng:lng.toFixed(7),accuracy:Math.round(acc),
+      time:now.toLocaleTimeString('th-TH'),date:now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'}),
+      dest:destPlace?(destPlace.name||destPlace.formatted_address):null,eta:destPlace?document.getElementById('etaTime').textContent:null});
+    renderLog();
+    showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
+    if (orderActive) {
+      db.ref(`orders/${orderId}/status`).set('arrived');
+      db.ref(`orders/${orderId}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+      stopBroadcast();
+      localStorage.removeItem(RESUME_KEY);
+    }
+    if (map) new google.maps.Marker({position:{lat,lng},map,
+      label:{text:String(checkInCount),color:'white',fontSize:'11px',fontWeight:'bold'},
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:14,fillColor:'#f87171',fillOpacity:1,strokeColor:'white',strokeWeight:2}});
+  }
+
+  function haversine(la1,lo1,la2,lo2) {
+    const R=6371,dL=(la2-la1)*Math.PI/180,dG=(lo2-lo1)*Math.PI/180;
+    const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dG/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+  function genOrderId() {
+    const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    return `ORD${ds}${Math.random().toString(36).substr(2,4).toUpperCase()}`;
+  }
+  function toggleDriverCard() {
+    const b=document.getElementById('driverCardBody'),i=document.getElementById('driverToggleIcon');
+    b.classList.toggle('hidden'); i.textContent=b.classList.contains('hidden')?'▶':'▼';
+  }
+  function setChip(id,state,text) {
+    const el=document.getElementById(id); el.className=`status-chip ${state}`; el.querySelector('span').textContent=text;
+  }
+  function showToast(msg) {
+    const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+  }
+  function renderLog() {
+    const el=document.getElementById('logList');
+    if (!logs.length){el.innerHTML='<div class="log-empty">ยังไม่มีการ Check-in</div>';return;}
+    el.innerHTML=logs.map(e=>`<div class="log-item"><div class="log-num">${e.num}</div><div><div class="log-coords">📍 ${e.lat}, ${e.lng}</div><div class="log-meta">🎯 ±${e.accuracy}m · 🕐 ${e.date} ${e.time}${e.dest?`<br>🏪 ${e.dest}${e.eta?' · ETA: '+e.eta:''}`:''}</div></div></div>`).join('');
+  }
+  function clearLog() { logs=[]; checkInCount=0; renderLog(); }
+
+  document.getElementById('inputLat').addEventListener('paste', e => {
+    const text = (e.clipboardData||window.clipboardData).getData('text').trim();
+    const parts = text.split(/[\s,]+/);
+    if (parts.length>=2) {
+      const a=parseFloat(parts[0]),b=parseFloat(parts[1]);
+      if (!isNaN(a)&&!isNaN(b)) { e.preventDefault(); document.getElementById('inputLat').value=a; document.getElementById('inputLng').value=b; showToast('📋 วางพิกัดแล้ว กด ปัก ได้เลย'); }
+    }
+  });
+
+  const RESUME_KEY = 'pod_active_order';
+  function saveOrderToStorage() {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({
+      orderId, driverName:document.getElementById('driverName').value,
+      driverPhone:document.getElementById('driverPhone').value, driverPlate:document.getElementById('driverPlate').value,
+      destName:destPlace?(destPlace.name||destPlace.formatted_address):null,
+      destLat:destPlace?destPlace.geometry.location.lat():null, destLng:destPlace?destPlace.geometry.location.lng():null,
+      customerLink, savedAt:Date.now()
+    }));
+  }
+  function checkResume() {
+    const raw = localStorage.getItem(RESUME_KEY); if (!raw) return;
+    try {
+      const saved = JSON.parse(raw);
+      if (Date.now()-saved.savedAt > 24*60*60*1000) { localStorage.removeItem(RESUME_KEY); return; }
+      document.getElementById('resumeInfo').innerHTML = `📦 <b>${saved.orderId}</b><br>🚙 ${saved.driverName||'—'} · ${saved.driverPlate||'—'}<br>📍 ${saved.destName||'—'}`;
+      document.getElementById('resumeDialog').style.display = 'flex';
+    } catch(e) { localStorage.removeItem(RESUME_KEY); }
+  }
+  function doResume() {
+    const saved = JSON.parse(localStorage.getItem(RESUME_KEY));
+    document.getElementById('resumeDialog').style.display = 'none';
+    document.getElementById('driverName').value  = saved.driverName  || '';
+    document.getElementById('driverPhone').value = saved.driverPhone || '';
+    document.getElementById('driverPlate').value = saved.driverPlate || '';
+    orderId = saved.orderId;
+    document.getElementById('orderBadge').textContent = orderId;
+    customerLink = saved.customerLink || '';
+    if (customerLink) { document.getElementById('linkUrl').textContent=customerLink; document.getElementById('linkBox').style.display='block'; document.getElementById('btnLink').disabled=false; }
+    if (saved.destLat&&saved.destLng) {
+      const loc = new google.maps.LatLng(saved.destLat,saved.destLng);
+      destPlace = {geometry:{location:loc},name:saved.destName||'',formatted_address:saved.destName||''};
+      document.getElementById('destInput').value = saved.destName||'';
+      document.getElementById('btnClearDest').style.display = 'block';
+      document.getElementById('btnGMaps').disabled = false;
+      if (map) { placeDestMarker(loc); if (currentPos) calcRoute(); }
+    }
+    orderActive = true;
+    // broadcast ทันทีที่ resume ถ้า GPS ล็อคแล้ว และเริ่ม interval
+    if (currentPos) broadcastNow();
+    startBroadcast();
+    document.getElementById('driverCardBody').classList.add('hidden');
+    document.getElementById('driverToggleIcon').textContent = '▶';
+    document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+    document.getElementById('btnStart').disabled = true;
+    showToast(`🔄 กลับ Order ${orderId} แล้ว!`);
+  }
+  function discardResume() {
+    localStorage.removeItem(RESUME_KEY);
+    document.getElementById('resumeDialog').style.display = 'none';
+    showToast('🆕 เริ่ม Order ใหม่');
+  }
+
+  window.addEventListener('load', () => {
+    startGPS(); checkResume();
+    const saved = localStorage.getItem('pod_theme') || 'light';
+    document.body.className = saved;
+    document.getElementById('btnTheme').textContent = saved === 'light' ? '🌙' : '☀️';
+  });
 
   function toggleTheme() {
     const isLight = document.body.classList.contains('light');
@@ -457,27 +730,6 @@
     document.getElementById('btnTheme').textContent = isLight ? '☀️' : '🌙';
     localStorage.setItem('pod_theme', next || 'dark');
   }
-
-  function openInBrowser() {
-    // ลอง redirect ด้วย intent (Android) หรือแค่เปิด URL ใหม่
-    const url = window.location.href.replace('openExternalBrowser=1','') + (window.location.href.includes('?') ? '&' : '?') + 'openExternalBrowser=1';
-    window.location.href = location.href.includes('openExternalBrowser') ? location.href : location.href + '&openExternalBrowser=1';
-  }
-
-  window.addEventListener('load', () => {
-    const saved = localStorage.getItem('pod_theme') || 'light';
-    document.body.className = saved;
-    document.getElementById('btnTheme').textContent = saved === 'light' ? '🌙' : '☀️';
-
-    // Detect LINE in-app browser
-    const ua = navigator.userAgent || '';
-    const isLine = /Line\//i.test(ua);
-    if (isLine) {
-      document.getElementById('lineBanner').classList.add('show');
-      // ดัน header ลงเพื่อไม่ให้ banner บัง
-      document.querySelector('.header') && (document.querySelector('.header').style.marginTop = '110px');
-    }
-  });
 </script>
 </body>
 </html>
