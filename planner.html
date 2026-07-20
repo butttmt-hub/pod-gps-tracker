@@ -920,6 +920,7 @@
 
   function getStatus(o) {
     if (o.status === 'cancelled') return 'cancelled';
+    if (o.status === 'arrived')   return 'arrived';   // ส่งแล้ว → ไม่ถูกทับด้วย expired
     if (o.status === 'pending')   return 'pending';
     if (o.expireAt && Date.now() > o.expireAt) return 'expired';
     return o.status || 'delivering';
