@@ -124,7 +124,8 @@
     .btn-blue   { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; box-shadow: 0 4px 16px rgba(79,142,247,0.3); }
     .btn-green  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
     .btn-orange { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.25); }
-    .btn-pod    { font-size: 14px; padding: 15px; }
+    .btn-pod    { font-size: 18px; font-weight: 800; padding: 20px; letter-spacing: 0.3px; border-radius: 16px; box-shadow: 0 6px 24px rgba(52,211,153,0.4); }
+    .btn-pod-green { background: linear-gradient(135deg, #34d399, #059669); color: white; }
 
     /* Link Box */
     .link-box { display: none; margin: 0 14px; padding: 10px 14px; background: rgba(79,142,247,0.08); border: 1px solid rgba(79,142,247,0.2); border-radius: 10px; }
@@ -287,7 +288,7 @@
     <button class="btn btn-green"  id="btnGMaps" onclick="openGoogleMaps()"   disabled>🗺️ Google Maps</button>
     <button class="btn btn-orange" id="btnLink"  onclick="copyCustomerLink()" disabled>📋 Link ลูกค้า</button>
   </div>
-  <button class="btn btn-blue btn-pod" id="btnPOD" onclick="checkIn()" disabled>✅ บันทึก POD (Check-in)</button>
+  <button class="btn btn-pod btn-pod-green" id="btnPOD" onclick="checkIn()" disabled>✅ ส่งจบงาน</button>
 </div>
 
 <!-- Customer Link -->
