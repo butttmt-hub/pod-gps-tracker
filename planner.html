@@ -424,6 +424,22 @@
     /* ── btn-map ────────────────────────────────────── */
     .btn-map { background: rgba(124,108,247,0.12); color: var(--accent2); border: 1px solid rgba(124,108,247,0.25); }
     .btn-map:hover { background: rgba(124,108,247,0.22) !important; }
+    .btn-link-order { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.25); }
+    .btn-link-order:hover { background: rgba(251,146,60,0.22) !important; }
+
+    /* ── Link Modal ─────────────────────────────────── */
+    .link-modal-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:20px; }
+    .link-modal-overlay.show { display:flex; }
+    .link-modal-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; width:100%; max-width:440px; padding:24px; box-shadow:0 24px 60px rgba(0,0,0,0.5); }
+    .link-modal-title { font-size:16px; font-weight:800; margin-bottom:4px; }
+    .link-modal-id { font-size:12px; color:var(--accent); font-weight:700; margin-bottom:20px; }
+    .link-modal-label { font-size:10px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; margin-bottom:6px; }
+    .link-modal-row { display:flex; gap:8px; margin-bottom:14px; align-items:center; }
+    .link-modal-input { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:11px; color:var(--muted2); font-family:'Inter',sans-serif; outline:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .link-modal-copy { padding:10px 14px; border:none; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; background:var(--accent); color:white; white-space:nowrap; transition:opacity 0.2s; }
+    .link-modal-copy:hover { opacity:0.85; }
+    .link-modal-close { width:100%; padding:12px; border:none; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; background:var(--surface2); color:var(--muted2); border:1px solid var(--border); margin-top:4px; transition:opacity 0.2s; }
+    .link-modal-close:hover { opacity:0.8; }
 
     /* ── Footer ────────────────────────────────────── */
     .footer { text-align: center; font-size: 11px; color: var(--muted); padding: 0 24px 32px; }
@@ -651,6 +667,25 @@
       <button class="dialog-btn dialog-btn-cancel"  onclick="closeDialog()">← ยังไม่ยกเลิก</button>
       <button class="dialog-btn dialog-btn-confirm" onclick="confirmCancel()">ยืนยัน ยกเลิก</button>
     </div>
+  </div>
+</div>
+
+<!-- Link Modal -->
+<div class="link-modal-overlay" id="linkModal" onclick="if(event.target===this)closeLinkModal()">
+  <div class="link-modal-box">
+    <div class="link-modal-title">🔗 ลิงค์ Order</div>
+    <div class="link-modal-id" id="linkModalId">—</div>
+    <div class="link-modal-label" style="color:var(--accent)">🚗 DRIVER LINK — ส่งให้คนขับ</div>
+    <div class="link-modal-row">
+      <input class="link-modal-input" id="linkModalDriver" readonly />
+      <button class="link-modal-copy" onclick="copyLinkModal('driver')">📋 Copy</button>
+    </div>
+    <div class="link-modal-label" style="color:var(--orange)">🛍️ CUSTOMER LINK — ส่งให้ลูกค้า</div>
+    <div class="link-modal-row">
+      <input class="link-modal-input" id="linkModalCust" readonly />
+      <button class="link-modal-copy" onclick="copyLinkModal('cust')">📋 Copy</button>
+    </div>
+    <button class="link-modal-close" onclick="closeLinkModal()">✕ ปิด</button>
   </div>
 </div>
 
@@ -1073,9 +1108,9 @@
         <div class="expire-text">⏰ Link หมดอายุ: ${expires}</div>
 
         <div class="action-row">
-          <button class="act-btn btn-map"    onclick="openMapModal('${id}')">📍 ดูตำแหน่ง</button>
-          <button class="act-btn btn-copy"   onclick="copyLink('${link}')">📋 Copy</button>
-          <button class="act-btn btn-track"  onclick="window.open('${link}','_blank')" ${st==='expired'||st==='cancelled'?'disabled':''}>👁️ Track</button>
+          <button class="act-btn btn-map"        onclick="openMapModal('${id}')">📍 ตำแหน่ง</button>
+          <button class="act-btn btn-link-order" onclick="openLinkModal('${id}')">🔗 ลิงค์</button>
+          <button class="act-btn btn-track"      onclick="window.open('${link}','_blank')" ${st==='expired'||st==='cancelled'?'disabled':''}>👁️ Track</button>
           ${st!=='cancelled'?`<button class="act-btn btn-cancel" onclick="openCancelDialog('${id}')">🚫 ยกเลิก</button>`:'<button class="act-btn btn-cancel" disabled>🚫 ยกเลิกแล้ว</button>'}
         </div>
       </div>
@@ -1088,6 +1123,26 @@
     document.getElementById('chev_'+id).classList.toggle('open');
     if (body.classList.contains('show')) openCards.add(id);
     else openCards.delete(id);
+  }
+
+  // ── Link Modal ────────────────────────────────────
+  function openLinkModal(id) {
+    const driverLink = `${BASE_URL}index.html?order=${id}`;
+    const custLink   = `${BASE_URL}track.html?order=${id}&openExternalBrowser=1`;
+    document.getElementById('linkModalId').textContent     = id;
+    document.getElementById('linkModalDriver').value       = driverLink;
+    document.getElementById('linkModalCust').value         = custLink;
+    document.getElementById('linkModal').classList.add('show');
+  }
+  function closeLinkModal() {
+    document.getElementById('linkModal').classList.remove('show');
+  }
+  function copyLinkModal(type) {
+    const val = type === 'driver'
+      ? document.getElementById('linkModalDriver').value
+      : document.getElementById('linkModalCust').value;
+    if (navigator.clipboard) navigator.clipboard.writeText(val).then(() => showToast('📋 Copy แล้ว!'));
+    else prompt('Copy:', val);
   }
 
   // ── Cancel Order ──────────────────────────────────
