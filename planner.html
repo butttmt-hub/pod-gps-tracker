@@ -776,11 +776,14 @@
       document.getElementById('livePill').style.display = s.val() ? 'flex' : 'none';
     });
 
+    let _renderTimer = null;
     db.ref('orders').on('value', snap => {
       allOrders = snap.val() || {};
-      renderOrders();
       document.getElementById('footer').textContent =
         'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+      // debounce 800ms — ป้องกัน refresh ถี่เกินไป
+      clearTimeout(_renderTimer);
+      _renderTimer = setTimeout(renderOrders, 800);
     });
   }
 
@@ -795,6 +798,9 @@
     const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
     return `ORD${ds}${Math.random().toString(36).substr(2,4).toUpperCase()}`;
   }
+
+  // ── Open card tracking (preserve across re-renders) ──
+  let openCards = new Set();
 
   // ── Create Order ────────────────────────────────────
   let createAutocomplete = null, createDestPlace = null, createSeqVal = 1, createDestMode = 'search';
@@ -920,6 +926,9 @@
   }
 
   function renderOrders() {
+    // ถ้า Create Modal เปิดอยู่ → ข้ามการ refresh เพื่อไม่ให้รบกวนการสร้าง Order
+    if (document.getElementById('createModalOverlay')?.classList.contains('show')) return;
+
     const q = (document.getElementById('searchInput').value || '').toLowerCase();
     const entries = Object.entries(allOrders).reverse();
 
@@ -975,6 +984,14 @@
       return;
     }
     el.innerHTML = filtered.map(([id,o]) => cardHTML(id,o)).join('');
+
+    // Restore card expand state หลัง re-render
+    openCards.forEach(id => {
+      const body = document.getElementById('body_'+id);
+      const chev = document.getElementById('chev_'+id);
+      if (body) body.classList.add('show');
+      if (chev) chev.classList.add('open');
+    });
   }
 
   function hl(text, q) {
@@ -988,16 +1005,28 @@
     const st = getStatus(o);
     const pillCls  = st==='arrived'?'pill-arrived':st==='expired'?'pill-expired':st==='cancelled'?'pill-cancelled':st==='pending'?'pill-pending':'pill-delivering';
     const pillText = st==='arrived'?'✅ ส่งแล้ว':st==='expired'?'⏰ หมดอายุ':st==='cancelled'?'🚫 ยกเลิกแล้ว':st==='pending'?'⏳ รอคนขับ':'🚚 กำลังส่ง';
-    const created  = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
-    const expires  = o.expireAt  ? new Date(o.expireAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const created  = o.createdAt  ? new Date(o.createdAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const expires  = o.expireAt   ? new Date(o.expireAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const arrivedAt= o.arrivedAt  ? new Date(o.arrivedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : null;
+    const startedAt= o.startedAt  ? new Date(o.startedAt).toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit'}) : null;
+    const driverName = o.driver?.name || '';
+    const destShort  = o.customer?.name || o.customer?.address || '';
     const link = `${BASE_URL}track.html?order=${id}`;
+
+    // Time badge shown right side of header
+    const timeBadge = st==='arrived' && arrivedAt
+      ? `<div style="font-size:10px;color:var(--green);font-weight:700;white-space:nowrap">✅ ส่งถึง ${arrivedAt}</div><div style="font-size:10px;color:var(--muted);white-space:nowrap">สร้าง ${created}</div>`
+      : `<div style="font-size:10px;color:var(--muted);white-space:nowrap">${created}</div>`;
 
     return `
     <div class="order-card ${st}" id="card_${id}">
       <div class="order-header" onclick="toggle('${id}')">
         <span class="status-pill ${pillCls}">${pillText}</span>
-        <span class="order-id-text">${hl(id, q)}</span>
-        <span class="order-time-text">${created}</span>
+        <div style="flex:1;min-width:0;overflow:hidden">
+          <div class="order-id-text">${hl(id, q)}</div>
+          ${(driverName||destShort) ? `<div style="font-size:11px;color:var(--muted2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${driverName?'🚗 '+hl(driverName,q):''}${driverName&&destShort?' · ':''}${destShort?'📍 '+hl(destShort,q):''}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:8px">${timeBadge}</div>
         <span class="chevron" id="chev_${id}">▾</span>
       </div>
       <div class="order-body" id="body_${id}">
@@ -1053,8 +1082,11 @@
   }
 
   function toggle(id) {
-    document.getElementById('body_'+id).classList.toggle('show');
+    const body = document.getElementById('body_'+id);
+    body.classList.toggle('show');
     document.getElementById('chev_'+id).classList.toggle('open');
+    if (body.classList.contains('show')) openCards.add(id);
+    else openCards.delete(id);
   }
 
   // ── Cancel Order ──────────────────────────────────
