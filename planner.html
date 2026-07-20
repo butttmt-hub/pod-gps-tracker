@@ -576,9 +576,34 @@
         </div>
       </div>
       <div class="create-section-title">📍 ปลายทาง</div>
-      <div class="create-group">
+      <!-- Mode Toggle -->
+      <div style="display:flex;gap:6px">
+        <button class="seq-btn active" id="cModeSearch" onclick="switchCreateMode('search',this)" style="font-size:11px;padding:7px 10px">🔍 ค้นหาชื่อ/ที่อยู่</button>
+        <button class="seq-btn"        id="cModeCoords" onclick="switchCreateMode('coords',this)" style="font-size:11px;padding:7px 10px">📌 พิกัด Lat/Lng</button>
+      </div>
+      <!-- Search Mode -->
+      <div id="cDestSearchSection">
         <div class="create-label">ที่อยู่ปลายทาง *</div>
         <input class="create-input" id="cDestInput" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
+      </div>
+      <!-- Coords Mode -->
+      <div id="cDestCoordsSection" style="display:none">
+        <div class="create-row" style="margin-bottom:6px">
+          <div class="create-group">
+            <div class="create-label">Latitude *</div>
+            <input class="create-input" id="cLat" type="number" step="any" placeholder="13.7563" />
+          </div>
+          <div class="create-group">
+            <div class="create-label">Longitude *</div>
+            <input class="create-input" id="cLng" type="number" step="any" placeholder="100.5018" />
+          </div>
+        </div>
+        <div class="create-group">
+          <div class="create-label">ชื่อสถานที่ (ไม่บังคับ)</div>
+          <input class="create-input" id="cCoordsName" placeholder="ชื่อสถานที่ / บริษัท" />
+        </div>
+        <button onclick="confirmCreateCoords()" style="margin-top:6px;width:100%;padding:9px;border:none;border-radius:8px;background:rgba(79,142,247,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📌 ยืนยันพิกัด</button>
+        <div id="cCoordsStatus" style="font-size:11px;color:var(--muted);margin-top:4px;min-height:16px"></div>
       </div>
       <div class="create-section-title">🔢 ลำดับงาน</div>
       <div class="seq-row">
@@ -772,15 +797,22 @@
   }
 
   // ── Create Order ────────────────────────────────────
-  let createAutocomplete = null, createDestPlace = null, createSeqVal = 1;
+  let createAutocomplete = null, createDestPlace = null, createSeqVal = 1, createDestMode = 'search';
 
   function openCreateModal() {
     document.getElementById('createFormBody').style.display  = 'flex';
     document.getElementById('createSuccessBody').style.display = 'none';
     document.getElementById('createModalFoot').style.display = 'flex';
-    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput']
+    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput','cLat','cLng','cCoordsName']
       .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-    createDestPlace = null; createSeqVal = 1;
+    createDestPlace = null; createSeqVal = 1; createDestMode = 'search';
+    document.getElementById('cModeSearch').classList.add('active');
+    document.getElementById('cModeCoords').classList.remove('active');
+    document.getElementById('cDestSearchSection').style.display = 'flex';
+    document.getElementById('cDestSearchSection').style.flexDirection = 'column';
+    document.getElementById('cDestSearchSection').style.gap = '4px';
+    document.getElementById('cDestCoordsSection').style.display = 'none';
+    document.getElementById('cCoordsStatus').textContent = '';
     document.querySelectorAll('.seq-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
     const btn = document.getElementById('btnCreateSubmit');
     btn.textContent = '✅ สร้าง Order'; btn.disabled = false;
@@ -796,6 +828,33 @@
     }, 200);
   }
   function closeCreateModal() { document.getElementById('createModalOverlay').classList.remove('show'); }
+
+  function switchCreateMode(mode, btn) {
+    createDestMode = mode;
+    createDestPlace = null;
+    document.getElementById('cModeSearch').classList.toggle('active', mode==='search');
+    document.getElementById('cModeCoords').classList.toggle('active', mode==='coords');
+    document.getElementById('cDestSearchSection').style.display = mode==='search' ? 'flex' : 'none';
+    document.getElementById('cDestSearchSection').style.flexDirection = 'column';
+    document.getElementById('cDestSearchSection').style.gap = '4px';
+    document.getElementById('cDestCoordsSection').style.display = mode==='coords' ? 'flex' : 'none';
+    document.getElementById('cDestCoordsSection').style.flexDirection = 'column';
+    document.getElementById('cDestCoordsSection').style.gap = '6px';
+    if (mode==='search') document.getElementById('cDestInput').value = '';
+    else { document.getElementById('cLat').value=''; document.getElementById('cLng').value=''; document.getElementById('cCoordsName').value=''; document.getElementById('cCoordsStatus').textContent=''; }
+  }
+
+  function confirmCreateCoords() {
+    const lat = parseFloat(document.getElementById('cLat').value);
+    const lng = parseFloat(document.getElementById('cLng').value);
+    const name = document.getElementById('cCoordsName').value.trim();
+    if (isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180) {
+      document.getElementById('cCoordsStatus').textContent = '⚠️ พิกัดไม่ถูกต้อง'; return;
+    }
+    const loc = new google.maps.LatLng(lat, lng);
+    createDestPlace = { geometry:{location:loc}, name:name||`${lat.toFixed(5)},${lng.toFixed(5)}`, formatted_address:name||`${lat.toFixed(5)}, ${lng.toFixed(5)}` };
+    document.getElementById('cCoordsStatus').textContent = `✅ ยืนยันแล้ว: ${lat.toFixed(5)}, ${lng.toFixed(5)}${name?' — '+name:''}`;
+  }
   function handleCreateOverlayClick(e) { if(e.target===document.getElementById('createModalOverlay')) closeCreateModal(); }
   function selectSeq(n,btn) {
     createSeqVal=n;
