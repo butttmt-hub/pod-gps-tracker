@@ -1365,6 +1365,27 @@
   let modalLocationRef = null, modalLastRoute = 0;
   let currentModalOrderId = null;
 
+  // หาพิกัดปลายทางของ Order — รองรับ ORD และ TMT
+  function getModalDestPos(o) {
+    if (o.stops) {
+      // TMT: ใช้ currentStop หรือหา stop ที่ยังไม่ arrived
+      const cur = o.currentStop || 1;
+      const stop = o.stops[cur] || Object.values(o.stops).find(s => s.status !== 'arrived');
+      if (stop?.customer?.lat) return { lat: stop.customer.lat, lng: stop.customer.lng };
+    }
+    if (o.customer?.lat) return { lat: o.customer.lat, lng: o.customer.lng };
+    return null;
+  }
+  function getModalDestLabel(o) {
+    if (o.stops) {
+      const cur = o.currentStop || 1;
+      const stop = o.stops[cur] || Object.values(o.stops).find(s => s.status !== 'arrived');
+      const total = o.totalStops || Object.keys(o.stops).length;
+      return `📍 จุดที่ ${cur}/${total}: ${stop?.customer?.name || ''}`;
+    }
+    return `📍 ${o.customer?.name || 'ปลายทาง'}`;
+  }
+
   function openMapModal(id) {
     currentModalOrderId = id;
     const o = allOrders[id];
@@ -1397,18 +1418,22 @@
       initModalMap();
     }
 
-    // Destination marker
-    if (modalMap && o.customer?.lat) {
-      const custPos = { lat: o.customer.lat, lng: o.customer.lng };
-      if (!modalCustomerMarker) {
-        modalCustomerMarker = new google.maps.Marker({
-          position: custPos, map: modalMap, zIndex: 20,
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          animation: google.maps.Animation.DROP
-        });
-      } else {
-        modalCustomerMarker.setPosition(custPos);
-        modalCustomerMarker.setMap(modalMap);
+    // Destination marker — รองรับทั้ง ORD (o.customer) และ TMT (o.stops[n])
+    if (modalMap) {
+      const destPos = getModalDestPos(o);
+      if (destPos) {
+        if (!modalCustomerMarker) {
+          modalCustomerMarker = new google.maps.Marker({
+            position: destPos, map: modalMap, zIndex: 20,
+            icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            animation: google.maps.Animation.DROP,
+            title: getModalDestLabel(o)
+          });
+        } else {
+          modalCustomerMarker.setPosition(destPos);
+          modalCustomerMarker.setMap(modalMap);
+          modalCustomerMarker.setTitle(getModalDestLabel(o));
+        }
       }
     }
 
@@ -1447,12 +1472,13 @@
 
     if (!modalMap) {
       initModalMap();
-      // Re-add customer marker after map init
-      if (o.customer?.lat) {
+      // Re-add destination marker after map init
+      const destPos = getModalDestPos(o);
+      if (destPos) {
         modalCustomerMarker = new google.maps.Marker({
-          position: { lat: o.customer.lat, lng: o.customer.lng },
-          map: modalMap, zIndex: 20,
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+          position: destPos, map: modalMap, zIndex: 20,
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          title: getModalDestLabel(o)
         });
       }
     }
@@ -1470,10 +1496,11 @@
     }
 
     // Fit bounds
-    if (o.customer?.lat) {
+    const destPos = getModalDestPos(o);
+    if (destPos) {
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(driverPos);
-      bounds.extend({ lat: o.customer.lat, lng: o.customer.lng });
+      bounds.extend(destPos);
       modalMap.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
     } else {
       modalMap.panTo(driverPos);
@@ -1481,11 +1508,11 @@
 
     // Route + ETA (throttle 15s)
     const now = Date.now();
-    if (o.customer?.lat && now - modalLastRoute > 15000) {
+    if (destPos && now - modalLastRoute > 15000) {
       modalLastRoute = now;
       modalDirService.route({
         origin: driverPos,
-        destination: { lat: o.customer.lat, lng: o.customer.lng },
+        destination: destPos,
         travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
       }, (res, status) => {
         if (status === 'OK') {
