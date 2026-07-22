@@ -330,7 +330,7 @@
 
 <!-- Action Area -->
 <div class="action-area">
-  <button class="btn btn-blue" id="btnStart" onclick="startOrder()">🚀 เริ่มการส่ง / สร้าง Order</button>
+  <button class="btn btn-blue" id="btnStart" onclick="startOrder()">🚀 เริ่มส่งงาน</button>
   <div class="btn-row">
     <button class="btn btn-green"  id="btnGMaps" onclick="openGoogleMaps()"   disabled>🗺️ Google Maps</button>
     <button class="btn btn-orange" id="btnLink"  onclick="copyCustomerLink()" disabled>📋 Link ลูกค้า</button>
@@ -435,6 +435,17 @@
       if (!snap.exists()) { showToast('⚠️ ไม่พบ Order '+urlOrder); return; }
       const data = snap.val();
 
+      // ── ถ้างานจบแล้ว → Done Screen ทันที ──────────
+      if (data.status === 'completed' || data.status === 'arrived') {
+        const doneTime = data.arrivedAt ? new Date(data.arrivedAt).toLocaleTimeString('th-TH') : '—';
+        document.getElementById('doneOrderId').textContent = urlOrder;
+        document.getElementById('doneTime').textContent    = doneTime;
+        document.getElementById('doneCoords').textContent  = data.location
+          ? `${data.location.lat.toFixed(5)}, ${data.location.lng.toFixed(5)}` : '—';
+        document.getElementById('doneScreen').classList.add('show');
+        return;
+      }
+
       // ── แสดง UI งาน ────────────────────────────────
       document.getElementById('waitingScreen').style.display  = 'none';
       document.getElementById('mainDriverContent').style.display = 'block';
@@ -486,7 +497,7 @@
         const ci = [data.customer?.name, data.customer?.phone?'📞 '+data.customer.phone:''].filter(Boolean).join(' · ');
         document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
         document.getElementById('plannerDestText').textContent = data.customer?.address ? '📍 '+data.customer.address : '';
-        document.getElementById('btnStart').textContent = `🚀 เริ่มงานที่ ${data.seq||1}`;
+        document.getElementById('btnStart').textContent = `🚀 เริ่มส่งงาน`;
         if (data.customer?.lat && data.customer?.lng) {
           const loc = new google.maps.LatLng(data.customer.lat, data.customer.lng);
           destPlace = {geometry:{location:loc}, name:data.customer.name||'', formatted_address:data.customer.address||''};
@@ -517,7 +528,7 @@
     currentStopNum = stopN;
 
     // Update button
-    document.getElementById('btnStart').textContent = `🚀 เริ่มงาน (จุด ${stopN}/${totalStops})`;
+    document.getElementById('btnStart').textContent = `🚀 เริ่มส่งงาน (จุด ${stopN}/${totalStops})`;
 
     // Banner
     document.getElementById('plannerBanner').style.display = 'block';
