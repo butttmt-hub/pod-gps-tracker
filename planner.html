@@ -434,6 +434,10 @@
     .stop-card-num { font-size:11px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px; }
     .stop-card-remove { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:0 4px; line-height:1; }
     .stop-card-remove:hover { color:var(--red); }
+    .stop-card-actions { display:flex; align-items:center; gap:4px; }
+    .btn-move { background:none; border:1px solid var(--border); border-radius:6px; color:var(--muted2); cursor:pointer; font-size:13px; padding:1px 7px; line-height:1.6; }
+    .btn-move:hover { background:rgba(79,142,247,0.12); color:var(--accent); border-color:var(--accent); }
+    .btn-move:disabled { opacity:0.25; cursor:default; }
     .btn-add-stop { width:100%; padding:10px; border:1.5px dashed var(--border); border-radius:10px; background:none; color:var(--muted2); font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.2s; margin-top:2px; }
     .btn-add-stop:hover { border-color:var(--accent); color:var(--accent); background:rgba(79,142,247,0.05); }
     .btn-add-stop:disabled { opacity:0.3; cursor:not-allowed; }
@@ -811,10 +815,14 @@
   function stopCardHTML(n, removable) {
     const colors = ['','🔴','🟠','🟡'];
     return `
-    <div class="stop-card" id="stopCard_${n}">
+    <div class="stop-card" id="stopCard_${n}" data-stop="${n}">
       <div class="stop-card-header">
         <span class="stop-card-num">${colors[n]||'📍'} จุดส่งที่ ${n}</span>
-        ${removable ? `<button class="stop-card-remove" onclick="removeStop(${n})" title="ลบจุดนี้">✕</button>` : ''}
+        <div class="stop-card-actions">
+          <button class="btn-move" id="btnUp_${n}"   onclick="moveStop(${n},-1)" title="ขึ้น">▲</button>
+          <button class="btn-move" id="btnDown_${n}" onclick="moveStop(${n},+1)" title="ลง">▼</button>
+          ${removable ? `<button class="stop-card-remove" onclick="removeStop(${n})" title="ลบจุดนี้">✕</button>` : ''}
+        </div>
       </div>
       <div class="create-row">
         <div class="create-group">
@@ -855,6 +863,56 @@
     </div>`;
   }
 
+  // ── Swap helper ───────────────────────────────────────────
+  function getStopData(n) {
+    const isCoords = document.getElementById(`cModeCoords_${n}`)?.classList.contains('active');
+    return {
+      custName:    document.getElementById(`cCustName_${n}`)?.value   || '',
+      custPhone:   document.getElementById(`cCustPhone_${n}`)?.value  || '',
+      destInput:   document.getElementById(`cDestInput_${n}`)?.value  || '',
+      lat:         document.getElementById(`cLat_${n}`)?.value        || '',
+      lng:         document.getElementById(`cLng_${n}`)?.value        || '',
+      coordsName:  document.getElementById(`cCoordsName_${n}`)?.value || '',
+      coordsStatus:document.getElementById(`cCoordsStatus_${n}`)?.textContent || '',
+      place: stopPlaces[n] || null,
+      mode: isCoords ? 'coords' : 'search',
+    };
+  }
+  function setStopData(n, d) {
+    document.getElementById(`cCustName_${n}`).value  = d.custName;
+    document.getElementById(`cCustPhone_${n}`).value = d.custPhone;
+    switchStopMode(n, d.mode);
+    if (d.mode === 'coords') {
+      document.getElementById(`cLat_${n}`).value         = d.lat;
+      document.getElementById(`cLng_${n}`).value         = d.lng;
+      document.getElementById(`cCoordsName_${n}`).value  = d.coordsName;
+      document.getElementById(`cCoordsStatus_${n}`).textContent = d.coordsStatus;
+    } else {
+      document.getElementById(`cDestInput_${n}`).value = d.destInput;
+    }
+    stopPlaces[n] = d.place;
+  }
+
+  function moveStop(n, dir) {
+    const target = n + dir;
+    if (target < 1 || target > stopCount) return;
+    const a = getStopData(n);
+    const b = getStopData(target);
+    setStopData(n, b);
+    setStopData(target, a);
+    updateMoveButtons();
+  }
+
+  function updateMoveButtons() {
+    for (let i = 1; i <= stopCount; i++) {
+      const up   = document.getElementById(`btnUp_${i}`);
+      const down = document.getElementById(`btnDown_${i}`);
+      if (up)   up.disabled   = (i === 1);
+      if (down) down.disabled = (i === stopCount);
+    }
+  }
+  // ─────────────────────────────────────────────────────────
+
   function addStop() {
     if (stopCount >= 3) return;
     stopCount++;
@@ -866,6 +924,7 @@
     initStopAC(stopCount);
     document.getElementById('btnAddStop').disabled = stopCount >= 3;
     document.getElementById('btnAddStop').textContent = stopCount >= 3 ? '➕ ครบ 3 จุดแล้ว' : '➕ เพิ่มจุดส่ง';
+    updateMoveButtons();
   }
 
   function removeStop(n) {
@@ -879,6 +938,7 @@
     const container = document.getElementById('stopsContainer');
     const cards = container.querySelectorAll('.stop-card');
     cards.forEach((card, i) => { card.id = 'stopCard_'+(i+1); });
+    updateMoveButtons();
   }
 
   function switchStopMode(n, mode) {
@@ -928,6 +988,7 @@
     initStopAC(1);
     document.getElementById('btnAddStop').disabled = false;
     document.getElementById('btnAddStop').textContent = '➕ เพิ่มจุดส่ง';
+    updateMoveButtons();
     ['cDriverName','cDriverPhone','cDriverPlate'].forEach(id => {
       const el = document.getElementById(id); if(el) el.value='';
     });
