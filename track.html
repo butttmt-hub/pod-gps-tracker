@@ -262,6 +262,8 @@
 
   const params  = new URLSearchParams(window.location.search);
   const orderId = params.get('order');
+  const stopNum = parseInt(params.get('stop') || '0');   // multi-stop: จุดที่ N
+  const isTMT   = orderId ? orderId.startsWith('TMT') : false;
   let map, driverMarker, customerMarker, dirService, dirRenderer;
   let lastDriverPos = null, customerPos = null, lastRouteCalc = 0;
   const ETA_THROTTLE = 15000;
@@ -331,7 +333,12 @@
               ? `🔍 REST ✓ lat:${loc.lat?.toFixed(5)} lng:${loc.lng?.toFixed(5)} @ ${new Date().toLocaleTimeString('th-TH')}`
               : `🔍 REST: location=null (คนขับยังไม่ได้ broadcast) @ ${new Date().toLocaleTimeString('th-TH')}`;
           }
-          if (loc && loc.lat && loc.lng && data.status !== 'arrived' && data.status !== 'cancelled') {
+          // ตรวจสอบสถานะสำหรับ multi-stop (TMT) vs single-stop (ORD)
+          let effectiveStatus = data.status;
+          if (isTMT && stopNum && data.stops && data.stops[stopNum]) {
+            effectiveStatus = data.stops[stopNum].status || 'delivering';
+          }
+          if (loc && loc.lat && loc.lng && effectiveStatus !== 'arrived' && effectiveStatus !== 'cancelled') {
             renderMap(loc);
           }
         })
@@ -355,6 +362,28 @@
       const d = new Date(data.createdAt);
       document.getElementById('orderCreated').textContent = 'สร้างเมื่อ ' + d.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     }
+
+    // ─── Multi-stop (TMT format) ──────────────────────
+    if (isTMT && stopNum && data.stops) {
+      const stop = data.stops[stopNum];
+      if (!stop) { showError('🔍','ไม่พบข้อมูล','ไม่พบจุดส่งนี้','ขอ Link ใหม่จากพนักงานได้เลย'); return; }
+      // Customer destination from this stop
+      if (stop.customer && stop.customer.lat && stop.customer.lng) {
+        customerPos = {lat: stop.customer.lat, lng: stop.customer.lng};
+        if (map && !customerMarker) {
+          customerMarker = new google.maps.Marker({position:customerPos, map, zIndex:20,
+            icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            animation:google.maps.Animation.DROP});
+        }
+      }
+      // Status comes from this stop's status
+      const stopStatus = stop.status || 'delivering';
+      setStatus(stopStatus === 'arrived' ? 'arrived' : (data.status === 'cancelled' ? 'cancelled' : 'delivering'));
+      if (data.location && stopStatus !== 'arrived') renderMap(data.location);
+      return;
+    }
+
+    // ─── Single-stop (ORD legacy format) ─────────────
     if (data.eta && data.etaDistance) {
       document.getElementById('etaTime').textContent = data.eta;
       document.getElementById('etaDist').textContent = data.etaDistance;
