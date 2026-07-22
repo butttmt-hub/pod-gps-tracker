@@ -208,6 +208,7 @@
     }
     .pill-delivering  { background: rgba(251,146,60,0.15);  color: var(--orange); border: 1px solid rgba(251,146,60,0.3);  }
     .pill-arrived     { background: rgba(52,211,153,0.15);  color: var(--green);  border: 1px solid rgba(52,211,153,0.3);  }
+    .pill-completed   { background: rgba(52,211,153,0.15);  color: var(--green);  border: 1px solid rgba(52,211,153,0.3);  }
     .pill-expired     { background: rgba(248,113,113,0.15); color: var(--red);    border: 1px solid rgba(248,113,113,0.3); }
     .pill-cancelled   { background: rgba(100,116,139,0.15); color: var(--muted);  border: 1px solid rgba(100,116,139,0.3); }
     .order-id-text { font-size: 13px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -427,6 +428,16 @@
     .btn-link-order { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.25); }
     .btn-link-order:hover { background: rgba(251,146,60,0.22) !important; }
 
+    /* ── Multi-Stop in Create Modal ─────────────────── */
+    .stop-card { border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; background:var(--surface2); position:relative; }
+    .stop-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .stop-card-num { font-size:11px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px; }
+    .stop-card-remove { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:0 4px; line-height:1; }
+    .stop-card-remove:hover { color:var(--red); }
+    .btn-add-stop { width:100%; padding:10px; border:1.5px dashed var(--border); border-radius:10px; background:none; color:var(--muted2); font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.2s; margin-top:2px; }
+    .btn-add-stop:hover { border-color:var(--accent); color:var(--accent); background:rgba(79,142,247,0.05); }
+    .btn-add-stop:disabled { opacity:0.3; cursor:not-allowed; }
+
     /* ── Link Modal ─────────────────────────────────── */
     .link-modal-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:20px; }
     .link-modal-overlay.show { display:flex; }
@@ -580,73 +591,27 @@
         <div class="create-label">ทะเบียนรถ *</div>
         <input class="create-input" id="cDriverPlate" placeholder="กข 1234 กรุงเทพ" />
       </div>
-      <div class="create-section-title">📦 ข้อมูลลูกค้า</div>
-      <div class="create-row">
-        <div class="create-group">
-          <div class="create-label">ชื่อลูกค้า / บริษัท</div>
-          <input class="create-input" id="cCustName" placeholder="ชื่อ บริษัท" />
-        </div>
-        <div class="create-group">
-          <div class="create-label">เบอร์ลูกค้า</div>
-          <input class="create-input" id="cCustPhone" type="tel" placeholder="0812345678" />
-        </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:4px">
+        <div class="create-section-title" style="margin:0">📍 จุดส่ง</div>
+        <button class="btn-add-stop" id="btnAddStop" onclick="addStop()" style="width:auto;padding:6px 14px;border-style:solid;font-size:11px">➕ เพิ่มจุดส่ง</button>
       </div>
-      <div class="create-section-title">📍 ปลายทาง</div>
-      <!-- Mode Toggle -->
-      <div style="display:flex;gap:6px">
-        <button class="seq-btn active" id="cModeSearch" onclick="switchCreateMode('search',this)" style="font-size:11px;padding:7px 10px">🔍 ค้นหาชื่อ/ที่อยู่</button>
-        <button class="seq-btn"        id="cModeCoords" onclick="switchCreateMode('coords',this)" style="font-size:11px;padding:7px 10px">📌 พิกัด Lat/Lng</button>
-      </div>
-      <!-- Search Mode -->
-      <div id="cDestSearchSection">
-        <div class="create-label">ที่อยู่ปลายทาง *</div>
-        <input class="create-input" id="cDestInput" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
-      </div>
-      <!-- Coords Mode -->
-      <div id="cDestCoordsSection" style="display:none">
-        <div class="create-row" style="margin-bottom:6px">
-          <div class="create-group">
-            <div class="create-label">Latitude *</div>
-            <input class="create-input" id="cLat" type="number" step="any" placeholder="13.7563" />
-          </div>
-          <div class="create-group">
-            <div class="create-label">Longitude *</div>
-            <input class="create-input" id="cLng" type="number" step="any" placeholder="100.5018" />
-          </div>
-        </div>
-        <div class="create-group">
-          <div class="create-label">ชื่อสถานที่ (ไม่บังคับ)</div>
-          <input class="create-input" id="cCoordsName" placeholder="ชื่อสถานที่ / บริษัท" />
-        </div>
-        <button onclick="confirmCreateCoords()" style="margin-top:6px;width:100%;padding:9px;border:none;border-radius:8px;background:rgba(79,142,247,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📌 ยืนยันพิกัด</button>
-        <div id="cCoordsStatus" style="font-size:11px;color:var(--muted);margin-top:4px;min-height:16px"></div>
-      </div>
-      <div class="create-section-title">🔢 ลำดับงาน</div>
-      <div class="seq-row">
-        <button class="seq-btn active" onclick="selectSeq(1,this)">งานที่ 1</button>
-        <button class="seq-btn"        onclick="selectSeq(2,this)">งานที่ 2</button>
-        <button class="seq-btn"        onclick="selectSeq(3,this)">งานที่ 3</button>
-      </div>
+      <div id="stopsContainer"></div>
     </div>
+
     <!-- Success -->
     <div class="create-modal-body create-success" id="createSuccessBody">
       <div class="create-success-icon">✅</div>
       <div class="create-success-id" id="createSuccessId"></div>
-      <div style="font-size:12px;color:var(--muted);text-align:center">สร้าง Order สำเร็จ — ส่งลิงค์ให้คนขับและลูกค้าได้เลย</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">สร้าง Order สำเร็จ — ส่งลิงค์ให้คนขับและลูกค้าได้เลย</div>
       <div class="create-link-row">
-        <div class="create-link-label">🚗 Driver Link — ส่งให้คนขับ</div>
+        <div class="create-link-label">🚗 DRIVER LINK — ส่งให้คนขับ</div>
         <div class="create-link-row-inner">
           <input class="create-link-input" id="createDriverLink" readonly />
           <button class="create-link-copy" onclick="copyCreateLink('driver')">📋 Copy</button>
         </div>
       </div>
-      <div class="create-link-row">
-        <div class="create-link-label">📦 Customer Link — ส่งให้ลูกค้า</div>
-        <div class="create-link-row-inner">
-          <input class="create-link-input" id="createCustLink" readonly />
-          <button class="create-link-copy" onclick="copyCreateLink('customer')">📋 Copy</button>
-        </div>
-      </div>
+      <div id="createCustLinksContainer"></div>
       <button class="btn-create-submit" onclick="resetCreateModal()" style="margin-top:4px">➕ สร้าง Order ใหม่อีกครั้ง</button>
     </div>
     <div class="create-modal-foot" id="createModalFoot">
@@ -678,13 +643,9 @@
     <div class="link-modal-label" style="color:var(--accent)">🚗 DRIVER LINK — ส่งให้คนขับ</div>
     <div class="link-modal-row">
       <input class="link-modal-input" id="linkModalDriver" readonly />
-      <button class="link-modal-copy" onclick="copyLinkModal('driver')">📋 Copy</button>
+      <button class="link-modal-copy" onclick="copyLinkById('linkModalDriver')">📋 Copy</button>
     </div>
-    <div class="link-modal-label" style="color:var(--orange)">🛍️ CUSTOMER LINK — ส่งให้ลูกค้า</div>
-    <div class="link-modal-row">
-      <input class="link-modal-input" id="linkModalCust" readonly />
-      <button class="link-modal-copy" onclick="copyLinkModal('cust')">📋 Copy</button>
-    </div>
+    <div id="linkModalCustBox"></div>
     <button class="link-modal-close" onclick="closeLinkModal()">✕ ปิด</button>
   </div>
 </div>
@@ -829,134 +790,251 @@
     renderOrders();
   }
 
-  function genOrderId() {
-    const d=new Date(),ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    return `ORD${ds}${Math.random().toString(36).substr(2,4).toUpperCase()}`;
+  async function genOrderId() {
+    const year = new Date().getFullYear();
+    const ref  = db.ref(`config/seq_${year}`);
+    const result = await ref.transaction(cur => (cur || 0) + 1);
+    const seq = result.snapshot.val();
+    return `TMT${year}-${String(seq).padStart(5, '0')}`;
   }
 
   // ── Open card tracking (preserve across re-renders) ──
   let openCards = new Set();
 
-  // ── Create Order ────────────────────────────────────
-  let createAutocomplete = null, createDestPlace = null, createSeqVal = 1, createDestMode = 'search';
+  // ── Create Order (Multi-Stop) ─────────────────────────
+  let stopCount = 1;
+  const stopPlaces = {}; // stopPlaces[n] = google.maps.Place or null
+  const stopAC    = {}; // stopAC[n] = Autocomplete instance
+
+  function stopCardHTML(n, removable) {
+    const colors = ['','🔴','🟠','🟡'];
+    return `
+    <div class="stop-card" id="stopCard_${n}">
+      <div class="stop-card-header">
+        <span class="stop-card-num">${colors[n]||'📍'} จุดส่งที่ ${n}</span>
+        ${removable ? `<button class="stop-card-remove" onclick="removeStop(${n})" title="ลบจุดนี้">✕</button>` : ''}
+      </div>
+      <div class="create-row">
+        <div class="create-group">
+          <div class="create-label">ชื่อลูกค้า / บริษัท</div>
+          <input class="create-input" id="cCustName_${n}" placeholder="ชื่อลูกค้า" />
+        </div>
+        <div class="create-group">
+          <div class="create-label">เบอร์โทร</div>
+          <input class="create-input" id="cCustPhone_${n}" type="tel" placeholder="0812345678" />
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="seq-btn active" id="cModeSearch_${n}" onclick="switchStopMode(${n},'search')" style="font-size:10px;padding:6px 10px">🔍 ค้นหา</button>
+        <button class="seq-btn"        id="cModeCoords_${n}" onclick="switchStopMode(${n},'coords')" style="font-size:10px;padding:6px 10px">📌 Lat/Lng</button>
+      </div>
+      <div id="cDestSearch_${n}">
+        <div class="create-label">ที่อยู่ปลายทาง *</div>
+        <input class="create-input" id="cDestInput_${n}" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
+      </div>
+      <div id="cDestCoords_${n}" style="display:none">
+        <div class="create-row" style="margin-bottom:6px">
+          <div class="create-group">
+            <div class="create-label">Latitude *</div>
+            <input class="create-input" id="cLat_${n}" type="number" step="any" placeholder="13.7563" />
+          </div>
+          <div class="create-group">
+            <div class="create-label">Longitude *</div>
+            <input class="create-input" id="cLng_${n}" type="number" step="any" placeholder="100.5018" />
+          </div>
+        </div>
+        <div class="create-group">
+          <div class="create-label">ชื่อสถานที่ (ไม่บังคับ)</div>
+          <input class="create-input" id="cCoordsName_${n}" placeholder="ชื่อสถานที่" />
+        </div>
+        <button onclick="confirmStopCoords(${n})" style="margin-top:6px;width:100%;padding:9px;border:none;border-radius:8px;background:rgba(79,142,247,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📌 ยืนยันพิกัด</button>
+        <div id="cCoordsStatus_${n}" style="font-size:11px;color:var(--muted);margin-top:4px;min-height:16px"></div>
+      </div>
+    </div>`;
+  }
+
+  function addStop() {
+    if (stopCount >= 3) return;
+    stopCount++;
+    stopPlaces[stopCount] = null;
+    const container = document.getElementById('stopsContainer');
+    const div = document.createElement('div');
+    div.innerHTML = stopCardHTML(stopCount, true);
+    container.appendChild(div.firstElementChild);
+    initStopAC(stopCount);
+    document.getElementById('btnAddStop').disabled = stopCount >= 3;
+    document.getElementById('btnAddStop').textContent = stopCount >= 3 ? '➕ ครบ 3 จุดแล้ว' : '➕ เพิ่มจุดส่ง';
+  }
+
+  function removeStop(n) {
+    document.getElementById('stopCard_'+n)?.remove();
+    delete stopPlaces[n]; delete stopAC[n];
+    // renumber remaining cards
+    stopCount--;
+    document.getElementById('btnAddStop').disabled = false;
+    document.getElementById('btnAddStop').textContent = '➕ เพิ่มจุดส่ง';
+    // Re-render remaining stop cards with correct numbers
+    const container = document.getElementById('stopsContainer');
+    const cards = container.querySelectorAll('.stop-card');
+    cards.forEach((card, i) => { card.id = 'stopCard_'+(i+1); });
+  }
+
+  function switchStopMode(n, mode) {
+    stopPlaces[n] = null;
+    document.getElementById('cModeSearch_'+n).classList.toggle('active', mode==='search');
+    document.getElementById('cModeCoords_'+n).classList.toggle('active', mode==='coords');
+    document.getElementById('cDestSearch_'+n).style.display = mode==='search' ? 'block' : 'none';
+    document.getElementById('cDestCoords_'+n).style.display = mode==='coords' ? 'flex' : 'none';
+    if (document.getElementById('cDestCoords_'+n).style.display === 'flex') {
+      document.getElementById('cDestCoords_'+n).style.flexDirection = 'column';
+      document.getElementById('cDestCoords_'+n).style.gap = '6px';
+    }
+    if (mode==='search') document.getElementById('cDestInput_'+n).value='';
+  }
+
+  function confirmStopCoords(n) {
+    const lat = parseFloat(document.getElementById('cLat_'+n).value);
+    const lng = parseFloat(document.getElementById('cLng_'+n).value);
+    const nm  = document.getElementById('cCoordsName_'+n).value.trim();
+    if (isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180) {
+      document.getElementById('cCoordsStatus_'+n).textContent = '⚠️ พิกัดไม่ถูกต้อง'; return;
+    }
+    const loc = new google.maps.LatLng(lat, lng);
+    stopPlaces[n] = {geometry:{location:loc}, name:nm||`${lat.toFixed(5)},${lng.toFixed(5)}`, formatted_address:nm||`${lat.toFixed(5)}, ${lng.toFixed(5)}`};
+    document.getElementById('cCoordsStatus_'+n).textContent = `✅ ยืนยันแล้ว: ${lat.toFixed(5)}, ${lng.toFixed(5)}${nm?' — '+nm:''}`;
+  }
+
+  function initStopAC(n) {
+    setTimeout(() => {
+      if (!window.google?.maps?.places) return;
+      const input = document.getElementById('cDestInput_'+n);
+      if (!input) return;
+      const ac = new google.maps.places.Autocomplete(input,
+        {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}});
+      ac.addListener('place_changed', () => { stopPlaces[n] = ac.getPlace(); });
+      stopAC[n] = ac;
+    }, 200);
+  }
 
   function openCreateModal() {
-    document.getElementById('createFormBody').style.display  = 'flex';
+    // reset
+    stopCount = 1;
+    Object.keys(stopPlaces).forEach(k => delete stopPlaces[k]);
+    Object.keys(stopAC).forEach(k => delete stopAC[k]);
+    stopPlaces[1] = null;
+    document.getElementById('stopsContainer').innerHTML = stopCardHTML(1, false);
+    initStopAC(1);
+    document.getElementById('btnAddStop').disabled = false;
+    document.getElementById('btnAddStop').textContent = '➕ เพิ่มจุดส่ง';
+    ['cDriverName','cDriverPhone','cDriverPlate'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('createFormBody').style.display    = 'flex';
     document.getElementById('createSuccessBody').style.display = 'none';
-    document.getElementById('createModalFoot').style.display = 'flex';
-    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput','cLat','cLng','cCoordsName']
-      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-    createDestPlace = null; createSeqVal = 1; createDestMode = 'search';
-    document.getElementById('cModeSearch').classList.add('active');
-    document.getElementById('cModeCoords').classList.remove('active');
-    document.getElementById('cDestSearchSection').style.display = 'flex';
-    document.getElementById('cDestSearchSection').style.flexDirection = 'column';
-    document.getElementById('cDestSearchSection').style.gap = '4px';
-    document.getElementById('cDestCoordsSection').style.display = 'none';
-    document.getElementById('cCoordsStatus').textContent = '';
-    document.querySelectorAll('.seq-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+    document.getElementById('createModalFoot').style.display   = 'flex';
     const btn = document.getElementById('btnCreateSubmit');
     btn.textContent = '✅ สร้าง Order'; btn.disabled = false;
     document.getElementById('createModalOverlay').classList.add('show');
-    setTimeout(() => {
-      if (!createAutocomplete && window.google?.maps?.places) {
-        createAutocomplete = new google.maps.places.Autocomplete(
-          document.getElementById('cDestInput'),
-          {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}}
-        );
-        createAutocomplete.addListener('place_changed', ()=>{ createDestPlace=createAutocomplete.getPlace(); });
-      }
-    }, 200);
-  }
-  function closeCreateModal() { document.getElementById('createModalOverlay').classList.remove('show'); }
-
-  function switchCreateMode(mode, btn) {
-    createDestMode = mode;
-    createDestPlace = null;
-    document.getElementById('cModeSearch').classList.toggle('active', mode==='search');
-    document.getElementById('cModeCoords').classList.toggle('active', mode==='coords');
-    document.getElementById('cDestSearchSection').style.display = mode==='search' ? 'flex' : 'none';
-    document.getElementById('cDestSearchSection').style.flexDirection = 'column';
-    document.getElementById('cDestSearchSection').style.gap = '4px';
-    document.getElementById('cDestCoordsSection').style.display = mode==='coords' ? 'flex' : 'none';
-    document.getElementById('cDestCoordsSection').style.flexDirection = 'column';
-    document.getElementById('cDestCoordsSection').style.gap = '6px';
-    if (mode==='search') document.getElementById('cDestInput').value = '';
-    else { document.getElementById('cLat').value=''; document.getElementById('cLng').value=''; document.getElementById('cCoordsName').value=''; document.getElementById('cCoordsStatus').textContent=''; }
   }
 
-  function confirmCreateCoords() {
-    const lat = parseFloat(document.getElementById('cLat').value);
-    const lng = parseFloat(document.getElementById('cLng').value);
-    const name = document.getElementById('cCoordsName').value.trim();
-    if (isNaN(lat)||isNaN(lng)||lat<-90||lat>90||lng<-180||lng>180) {
-      document.getElementById('cCoordsStatus').textContent = '⚠️ พิกัดไม่ถูกต้อง'; return;
-    }
-    const loc = new google.maps.LatLng(lat, lng);
-    createDestPlace = { geometry:{location:loc}, name:name||`${lat.toFixed(5)},${lng.toFixed(5)}`, formatted_address:name||`${lat.toFixed(5)}, ${lng.toFixed(5)}` };
-    document.getElementById('cCoordsStatus').textContent = `✅ ยืนยันแล้ว: ${lat.toFixed(5)}, ${lng.toFixed(5)}${name?' — '+name:''}`;
-  }
+  function closeCreateModal()  { document.getElementById('createModalOverlay').classList.remove('show'); }
   function handleCreateOverlayClick(e) { if(e.target===document.getElementById('createModalOverlay')) closeCreateModal(); }
-  function selectSeq(n,btn) {
-    createSeqVal=n;
-    document.querySelectorAll('.seq-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-  }
+
   function resetCreateModal() {
-    document.getElementById('createFormBody').style.display  = 'flex';
-    document.getElementById('createSuccessBody').style.display = 'none';
-    document.getElementById('createModalFoot').style.display = 'flex';
-    ['cDriverName','cDriverPhone','cDriverPlate','cCustName','cCustPhone','cDestInput']
-      .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-    createDestPlace=null; createSeqVal=1;
-    document.querySelectorAll('.seq-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
-    const btn=document.getElementById('btnCreateSubmit');
-    btn.textContent='✅ สร้าง Order'; btn.disabled=false;
+    openCreateModal();
   }
-  function handleCreateOrder() {
+
+  async function handleCreateOrder() {
     const name  = document.getElementById('cDriverName').value.trim();
     const phone = document.getElementById('cDriverPhone').value.trim();
     const plate = document.getElementById('cDriverPlate').value.trim();
     if (!name||!phone||!plate) { showToast('⚠️ กรอกข้อมูลคนขับให้ครบ'); return; }
-    if (!createDestPlace?.geometry) { showToast('⚠️ เลือกปลายทางจากรายการ (กด Enter หรือคลิกเลือก)'); return; }
+
+    // Validate all stops
+    for (let n=1; n<=stopCount; n++) {
+      if (!stopPlaces[n]?.geometry) {
+        showToast(`⚠️ จุดส่งที่ ${n}: เลือกหรือยืนยันปลายทางก่อน`); return;
+      }
+    }
+
     const btn = document.getElementById('btnCreateSubmit');
     btn.textContent='⏳ กำลังสร้าง...'; btn.disabled=true;
-    const orderId = genOrderId();
-    db.ref('orders/'+orderId).set({
-      driver:{name,phone,plate},
-      customer:{
-        name: document.getElementById('cCustName').value.trim(),
-        phone: document.getElementById('cCustPhone').value.trim(),
-        lat: createDestPlace.geometry.location.lat(),
-        lng: createDestPlace.geometry.location.lng(),
-        address: createDestPlace.formatted_address||createDestPlace.name||''
-      },
-      status:'pending', seq:createSeqVal,
-      createdAt:firebase.database.ServerValue.TIMESTAMP,
-      expireAt:Date.now()+24*60*60*1000
-    }).then(()=>{
+
+    try {
+      const orderId = await genOrderId();
+      const stops = {};
+      for (let n=1; n<=stopCount; n++) {
+        const p = stopPlaces[n];
+        stops[n] = {
+          customer: {
+            name:    document.getElementById('cCustName_'+n)?.value.trim() || '',
+            phone:   document.getElementById('cCustPhone_'+n)?.value.trim() || '',
+            lat:     p.geometry.location.lat(),
+            lng:     p.geometry.location.lng(),
+            address: p.formatted_address || p.name || ''
+          },
+          status: 'pending'
+        };
+      }
+
+      await db.ref('orders/'+orderId).set({
+        driver: {name, phone, plate},
+        stops, totalStops: stopCount, currentStop: 1,
+        status: 'pending',
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        expireAt:  Date.now() + 24*60*60*1000
+      });
+
+      // Success panel
       document.getElementById('createSuccessId').textContent = orderId;
-      document.getElementById('createDriverLink').value  = `${BASE_URL}index.html?order=${orderId}`;
-      document.getElementById('createCustLink').value    = `${BASE_URL}track.html?order=${orderId}&openExternalBrowser=1`;
+      document.getElementById('createDriverLink').value = `${BASE_URL}index.html?order=${orderId}`;
+
+      // Customer links
+      let custLinksHTML = '';
+      for (let n=1; n<=stopCount; n++) {
+        const label = stopCount>1 ? `🛍️ จุดที่ ${n} — ${stops[n].customer.name||'ลูกค้า'}` : '🛍️ CUSTOMER LINK — ส่งให้ลูกค้า';
+        const link  = stopCount>1
+          ? `${BASE_URL}track.html?order=${orderId}&stop=${n}&openExternalBrowser=1`
+          : `${BASE_URL}track.html?order=${orderId}&openExternalBrowser=1`;
+        custLinksHTML += `
+        <div class="create-link-row">
+          <div class="create-link-label">${label}</div>
+          <div class="create-link-row-inner">
+            <input class="create-link-input" id="createCustLink_${n}" readonly value="${link}" />
+            <button class="create-link-copy" onclick="copyLinkById('createCustLink_${n}')">📋 Copy</button>
+          </div>
+        </div>`;
+      }
+      document.getElementById('createCustLinksContainer').innerHTML = custLinksHTML;
+
       document.getElementById('createFormBody').style.display    = 'none';
       document.getElementById('createSuccessBody').style.display = 'flex';
       document.getElementById('createModalFoot').style.display   = 'none';
       showToast(`✅ สร้าง Order ${orderId} สำเร็จ!`);
-    }).catch(e=>{ showToast('❌ '+e.message); btn.textContent='✅ สร้าง Order'; btn.disabled=false; });
+    } catch(e) {
+      showToast('❌ '+e.message);
+      btn.textContent='✅ สร้าง Order'; btn.disabled=false;
+    }
   }
+
   function copyCreateLink(type) {
-    const val = type==='driver'
-      ? document.getElementById('createDriverLink').value
-      : document.getElementById('createCustLink').value;
+    const val = document.getElementById('createDriverLink').value;
+    if (navigator.clipboard) navigator.clipboard.writeText(val).then(()=>showToast('📋 Copy แล้ว!'));
+    else prompt('Copy:',val);
+  }
+  function copyLinkById(id) {
+    const val = document.getElementById(id)?.value;
+    if (!val) return;
     if (navigator.clipboard) navigator.clipboard.writeText(val).then(()=>showToast('📋 Copy แล้ว!'));
     else prompt('Copy:',val);
   }
   // ────────────────────────────────────────────────────
 
   function getStatus(o) {
-    if (o.status === 'cancelled') return 'cancelled';
-    if (o.status === 'arrived')   return 'arrived';   // ส่งแล้ว → ไม่ถูกทับด้วย expired
-    if (o.status === 'pending')   return 'pending';
+    if (o.status === 'cancelled')  return 'cancelled';
+    if (o.status === 'arrived')    return 'arrived';    // ORD single-stop done
+    if (o.status === 'completed')  return 'arrived';    // TMT multi-stop all done → same display
+    if (o.status === 'pending')    return 'pending';
     if (o.expireAt && Date.now() > o.expireAt) return 'expired';
     return o.status || 'delivering';
   }
@@ -998,8 +1076,9 @@
       if (currentFilter !== 'all' && s !== currentFilter) return false;
       // Search
       if (q) {
+        const stopNames = o.stops ? Object.values(o.stops).map(s=>`${s.customer?.name||''} ${s.customer?.address||''}`).join(' ') : '';
         const hay = [id, o.driver?.name, o.driver?.phone, o.driver?.plate,
-                     o.customer?.name, o.customer?.address].join(' ').toLowerCase();
+                     o.customer?.name, o.customer?.address, stopNames].join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -1083,10 +1162,25 @@
           </div>
         </div>
 
+        ${o.stops ? `
+        <div class="dest-cell">
+          <div class="info-cell-label">📍 จุดส่ง (${o.totalStops||Object.keys(o.stops).length} จุด)</div>
+          ${Object.entries(o.stops).map(([n,s])=>{
+            const done = s.status==='arrived';
+            return `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:${done?'rgba(52,211,153,0.08)':'var(--surface2)'};border-radius:8px;border:1px solid ${done?'rgba(52,211,153,0.2)':'var(--border)'}">
+              <span style="font-size:14px">${done?'✅':'📍'}</span>
+              <div style="min-width:0">
+                <div style="font-size:12px;font-weight:700">${hl(s.customer?.name||'จุดที่ '+n,q)}</div>
+                <div style="font-size:10px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hl(s.customer?.address||'—',q)}</div>
+              </div>
+              ${done?`<span style="font-size:10px;color:var(--green);font-weight:700;margin-left:auto;white-space:nowrap">ส่งแล้ว</span>`:''}
+            </div>`;
+          }).join('')}
+        </div>` : `
         <div class="dest-cell">
           <div class="info-cell-label">📍 ปลายทาง</div>
-          <div class="info-cell-val" style="margin-top:5px;font-size:13px">${o.customer?.name||o.customer?.address||'—'}</div>
-        </div>
+          <div class="info-cell-val" style="margin-top:5px;font-size:13px">${hl(o.customer?.name||o.customer?.address||'—',q)}</div>
+        </div>`}
 
         ${o.eta ? `
         <div class="eta-grid">
@@ -1127,22 +1221,37 @@
 
   // ── Link Modal ────────────────────────────────────
   function openLinkModal(id) {
+    const o = allOrders[id];
     const driverLink = `${BASE_URL}index.html?order=${id}`;
-    const custLink   = `${BASE_URL}track.html?order=${id}&openExternalBrowser=1`;
-    document.getElementById('linkModalId').textContent     = id;
-    document.getElementById('linkModalDriver').value       = driverLink;
-    document.getElementById('linkModalCust').value         = custLink;
+    document.getElementById('linkModalId').textContent = id;
+    document.getElementById('linkModalDriver').value   = driverLink;
+
+    // Customer links: TMT = per-stop, ORD = single
+    const custBox = document.getElementById('linkModalCustBox');
+    if (o?.stops) {
+      const isTMT = id.startsWith('TMT');
+      custBox.innerHTML = Object.entries(o.stops).map(([n,s]) => {
+        const link = `${BASE_URL}track.html?order=${id}&stop=${n}&openExternalBrowser=1`;
+        return `<div style="margin-bottom:10px">
+          <div class="link-modal-label" style="color:var(--orange)">🛍️ จุดที่ ${n} — ${s.customer?.name||'ลูกค้า'}</div>
+          <div class="link-modal-row">
+            <input class="link-modal-input" readonly value="${link}" id="lmCust_${n}" />
+            <button class="link-modal-copy" onclick="copyLinkById('lmCust_${n}')">📋 Copy</button>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      const link = `${BASE_URL}track.html?order=${id}&openExternalBrowser=1`;
+      custBox.innerHTML = `<div class="link-modal-label" style="color:var(--orange)">🛍️ CUSTOMER LINK — ส่งให้ลูกค้า</div>
+        <div class="link-modal-row">
+          <input class="link-modal-input" readonly value="${link}" id="lmCust_1" />
+          <button class="link-modal-copy" onclick="copyLinkById('lmCust_1')">📋 Copy</button>
+        </div>`;
+    }
     document.getElementById('linkModal').classList.add('show');
   }
   function closeLinkModal() {
     document.getElementById('linkModal').classList.remove('show');
-  }
-  function copyLinkModal(type) {
-    const val = type === 'driver'
-      ? document.getElementById('linkModalDriver').value
-      : document.getElementById('linkModalCust').value;
-    if (navigator.clipboard) navigator.clipboard.writeText(val).then(() => showToast('📋 Copy แล้ว!'));
-    else prompt('Copy:', val);
   }
 
   // ── Cancel Order ──────────────────────────────────
