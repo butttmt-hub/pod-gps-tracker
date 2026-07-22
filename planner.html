@@ -1238,13 +1238,14 @@
           <div class="info-cell-label">📍 จุดส่ง (${o.totalStops||Object.keys(o.stops).length} จุด)</div>
           ${Object.entries(o.stops).map(([n,s])=>{
             const done = s.status==='arrived';
+            const doneTime = s.arrivedAt ? new Date(s.arrivedAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : null;
             return `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:${done?'rgba(52,211,153,0.08)':'var(--surface2)'};border-radius:8px;border:1px solid ${done?'rgba(52,211,153,0.2)':'var(--border)'}">
               <span style="font-size:14px">${done?'✅':'📍'}</span>
-              <div style="min-width:0">
+              <div style="min-width:0;flex:1">
                 <div style="font-size:12px;font-weight:700">${hl(s.customer?.name||'จุดที่ '+n,q)}</div>
                 <div style="font-size:10px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${hl(s.customer?.address||'—',q)}</div>
               </div>
-              ${done?`<span style="font-size:10px;color:var(--green);font-weight:700;margin-left:auto;white-space:nowrap">ส่งแล้ว</span>`:''}
+              ${done?`<div style="text-align:right;white-space:nowrap;flex-shrink:0"><div style="font-size:10px;color:var(--green);font-weight:700">✅ ส่งแล้ว</div>${doneTime?`<div style="font-size:10px;color:var(--muted2)">${doneTime} น.</div>`:''}</div>`:''}
             </div>`;
           }).join('')}
         </div>` : `
