@@ -741,6 +741,8 @@
   const db = firebase.database();
 
   let allOrders = {}, currentFilter = 'all', currentDateFilter = 'today';
+  let isCreating = false;  // true ขณะ create modal เปิดอยู่ → block Firebase re-render
+  let _renderTimer = null; // module-level เพื่อให้ closeCreateModal เข้าถึงได้
 
   function toDateStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -772,12 +774,12 @@
       document.getElementById('livePill').style.display = s.val() ? 'flex' : 'none';
     });
 
-    let _renderTimer = null;
     db.ref('orders').on('value', snap => {
       allOrders = snap.val() || {};
       document.getElementById('footer').textContent =
         'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
-      // debounce 800ms — ป้องกัน refresh ถี่เกินไป
+      // ถ้า modal เปิดอยู่ → อย่า schedule render เด็ดขาด
+      if (isCreating) return;
       clearTimeout(_renderTimer);
       _renderTimer = setTimeout(renderOrders, 800);
     });
@@ -934,11 +936,19 @@
     document.getElementById('createModalFoot').style.display   = 'flex';
     const btn = document.getElementById('btnCreateSubmit');
     btn.textContent = '✅ สร้าง Order'; btn.disabled = false;
+    isCreating = true; // block Firebase re-render ตลอดช่วงที่ modal เปิด
+    clearTimeout(_renderTimer);
     document.getElementById('createModalOverlay').classList.add('show');
   }
 
-  function closeCreateModal()  { document.getElementById('createModalOverlay').classList.remove('show'); }
-  function handleCreateOverlayClick(e) { if(e.target===document.getElementById('createModalOverlay')) closeCreateModal(); }
+  function closeCreateModal() {
+    document.getElementById('createModalOverlay').classList.remove('show');
+    isCreating = false; // ปลด block
+    clearTimeout(_renderTimer);
+    _renderTimer = setTimeout(renderOrders, 300); // render ทันทีหลังปิด
+  }
+  // ปิด backdrop-click — ต้องกด ✕ หรือ "ยกเลิก" เท่านั้น
+  function handleCreateOverlayClick(e) { /* disabled intentionally */ }
 
   function resetCreateModal() {
     openCreateModal();
