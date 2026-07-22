@@ -1423,33 +1423,50 @@
       initModalMap();
     }
 
-    // Destination marker — รองรับทั้ง ORD (o.customer) และ TMT (o.stops[n])
-    if (modalMap) {
-      const destPos = getModalDestPos(o);
-      if (destPos) {
-        if (!modalCustomerMarker) {
-          modalCustomerMarker = new google.maps.Marker({
-            position: destPos, map: modalMap, zIndex: 20,
-            icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            animation: google.maps.Animation.DROP,
-            title: getModalDestLabel(o)
-          });
-        } else {
-          modalCustomerMarker.setPosition(destPos);
-          modalCustomerMarker.setMap(modalMap);
-          modalCustomerMarker.setTitle(getModalDestLabel(o));
+    const isDone = (st === 'arrived' || st === 'completed' || st === 'cancelled' || st === 'expired');
+
+    if (isDone) {
+      // ── งานจบแล้ว: แสดง static ─────────────────────────
+      // แทน ETA ด้วยเวลาส่งถึงจริง
+      document.getElementById('modalEta').style.display = 'none';
+      if (o.arrivedAt) {
+        const arrivedStr = new Date(o.arrivedAt).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        document.getElementById('modalEtaTime').textContent = '✅ ส่งถึงแล้ว';
+        document.getElementById('modalEtaDist').textContent = '';
+        document.getElementById('modalEtaArr').textContent  = arrivedStr + ' น.';
+        document.getElementById('modalEta').style.display   = 'flex';
+      }
+      // โหลดตำแหน่งสุดท้าย (static ครั้งเดียว ไม่ listen)
+      db.ref('orders/' + id + '/location').once('value').then(snap => {
+        if (!snap.exists()) return;
+        updateModalDriver(snap.val(), o, true); // true = static mode
+      });
+    } else {
+      // ── งานกำลังส่ง: destination marker + real-time ──────
+      if (modalMap) {
+        const destPos = getModalDestPos(o);
+        if (destPos) {
+          if (!modalCustomerMarker) {
+            modalCustomerMarker = new google.maps.Marker({
+              position: destPos, map: modalMap, zIndex: 20,
+              icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+              animation: google.maps.Animation.DROP,
+              title: getModalDestLabel(o)
+            });
+          } else {
+            modalCustomerMarker.setPosition(destPos);
+            modalCustomerMarker.setMap(modalMap);
+            modalCustomerMarker.setTitle(getModalDestLabel(o));
+          }
         }
       }
+      if (modalLocationRef) modalLocationRef.off();
+      modalLocationRef = db.ref('orders/' + id + '/location');
+      modalLocationRef.on('value', snap => {
+        if (!snap.exists()) return;
+        updateModalDriver(snap.val(), o, false);
+      });
     }
-
-    // Real-time location listener
-    if (modalLocationRef) modalLocationRef.off();
-    modalLocationRef = db.ref('orders/' + id + '/location');
-    modalLocationRef.on('value', snap => {
-      if (!snap.exists()) return;
-      const loc = snap.val();
-      updateModalDriver(loc, o);
-    });
   }
 
   function initModalMap() {
@@ -1465,72 +1482,70 @@
     });
   }
 
-  function updateModalDriver(loc, o) {
-    // Show map, hide placeholder
-    document.getElementById('modalNoLoc').style.display = 'none';
-    document.getElementById('modalMap').style.display   = 'block';
+  function updateModalDriver(loc, o, staticMode) {
+    document.getElementById('modalNoLoc').style.display  = 'none';
+    document.getElementById('modalMap').style.display    = 'block';
     document.getElementById('modalLocBar').style.display = 'flex';
 
-    // Coords + time
     document.getElementById('modalCoords').textContent    = loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5);
     document.getElementById('modalUpdatedAt').textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleTimeString('th-TH') : '—';
 
-    if (!modalMap) {
-      initModalMap();
-      // Re-add destination marker after map init
-      const destPos = getModalDestPos(o);
-      if (destPos) {
-        modalCustomerMarker = new google.maps.Marker({
-          position: destPos, map: modalMap, zIndex: 20,
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          title: getModalDestLabel(o)
-        });
-      }
-    }
+    if (!modalMap) { initModalMap(); }
 
     const driverPos = { lat: loc.lat, lng: loc.lng };
+
+    // ไอคอนหมุดรถ — static mode ใช้ pin ปกติ (ไม่ใช่ลูกศร)
+    const driverIcon = staticMode
+      ? { path: google.maps.SymbolPath.CIRCLE, scale: 9,
+          fillColor: '#94a3b8', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
+      : { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6, fillColor: '#4f8ef7', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 };
+
     if (!modalDriverMarker) {
       modalDriverMarker = new google.maps.Marker({
-        position: driverPos, map: modalMap, zIndex: 10,
-        icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 6, fillColor: '#4f8ef7', fillOpacity: 1,
-          strokeColor: 'white', strokeWeight: 2, rotation: 0 }
+        position: driverPos, map: modalMap, zIndex: 10, icon: driverIcon,
+        title: staticMode ? '📍 ตำแหน่งสุดท้าย' : '🚚 คนขับ'
       });
     } else {
       modalDriverMarker.setPosition(driverPos);
+      modalDriverMarker.setIcon(driverIcon);
     }
 
-    // Fit bounds
-    const destPos = getModalDestPos(o);
-    if (destPos) {
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(driverPos);
-      bounds.extend(destPos);
-      modalMap.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-    } else {
+    // Fit bounds — static mode zoom ไปที่ตำแหน่งสุดท้ายเลย
+    if (staticMode) {
       modalMap.panTo(driverPos);
-    }
-
-    // Route + ETA (throttle 15s)
-    const now = Date.now();
-    if (destPos && now - modalLastRoute > 15000) {
-      modalLastRoute = now;
-      modalDirService.route({
-        origin: driverPos,
-        destination: destPos,
-        travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
-      }, (res, status) => {
-        if (status === 'OK') {
-          modalDirRenderer.setDirections(res);
-          const leg    = res.routes[0].legs[0];
-          const arrival = new Date(Date.now() + leg.duration.value * 1000);
-          const arrStr  = arrival.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
-          document.getElementById('modalEtaTime').textContent = leg.duration.text;
-          document.getElementById('modalEtaDist').textContent = leg.distance.text;
-          document.getElementById('modalEtaArr').textContent  = 'ถึงประมาณ ' + arrStr;
-          document.getElementById('modalEta').style.display   = 'flex';
-        }
-      });
+      modalMap.setZoom(15);
+    } else {
+      const destPos = getModalDestPos(o);
+      if (destPos) {
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(driverPos);
+        bounds.extend(destPos);
+        modalMap.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+      } else {
+        modalMap.panTo(driverPos);
+      }
+      // Route + ETA (throttle 15s) — เฉพาะงานที่กำลังส่ง
+      const destPos2 = getModalDestPos(o);
+      const now = Date.now();
+      if (destPos2 && now - modalLastRoute > 15000) {
+        modalLastRoute = now;
+        modalDirService.route({
+          origin: driverPos, destination: destPos2,
+          travelMode: google.maps.TravelMode.DRIVING, region: 'TH'
+        }, (res, status) => {
+          if (status === 'OK') {
+            modalDirRenderer.setDirections(res);
+            const leg    = res.routes[0].legs[0];
+            const arrival = new Date(Date.now() + leg.duration.value * 1000);
+            const arrStr  = arrival.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+            document.getElementById('modalEtaTime').textContent = leg.duration.text;
+            document.getElementById('modalEtaDist').textContent = leg.distance.text;
+            document.getElementById('modalEtaArr').textContent  = 'ถึงประมาณ ' + arrStr;
+            document.getElementById('modalEta').style.display   = 'flex';
+          }
+        });
+      }
     }
   }
 
