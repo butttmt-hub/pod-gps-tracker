@@ -127,6 +127,23 @@
     .btn-pod    { font-size: 18px; font-weight: 800; padding: 20px; letter-spacing: 0.3px; border-radius: 16px; box-shadow: 0 6px 24px rgba(52,211,153,0.4); }
     .btn-pod-green { background: linear-gradient(135deg, #34d399, #059669); color: white; }
 
+    /* Multi-Stop List */
+    .stops-section { margin: 0 14px 10px; display:none; flex-direction:column; gap:6px; }
+    .stops-section.show { display:flex; }
+    .stops-title { font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px; }
+    .stop-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); transition:all 0.2s; }
+    .stop-item.active { background:rgba(251,146,60,0.12); border-color:rgba(251,146,60,0.4); }
+    .stop-item.done   { background:rgba(52,211,153,0.08); border-color:rgba(52,211,153,0.2); opacity:0.7; }
+    .stop-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; background:var(--surface); border:2px solid var(--border); }
+    .stop-item.active .stop-dot { background:var(--orange); border-color:var(--orange); }
+    .stop-item.done   .stop-dot { background:var(--green);  border-color:var(--green); }
+    .stop-name  { font-size:13px; font-weight:700; flex:1; }
+    .stop-addr  { font-size:10px; color:var(--muted2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+    .stop-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+    .stop-badge.active { background:rgba(251,146,60,0.2); color:var(--orange); }
+    .stop-badge.done   { background:rgba(52,211,153,0.15); color:var(--green); }
+    .stop-badge.pending{ background:var(--surface);        color:var(--muted); border:1px solid var(--border); }
+
     /* Done Screen */
     .done-screen {
       display: none; position: fixed; inset: 0; z-index: 999;
@@ -199,69 +216,66 @@
   <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="สลับโหมด">☀️</button>
 </div>
 
-<!-- Planner Order Banner (แสดงเมื่อเปิดด้วย ?order= จาก Planner) -->
-<div id="plannerBanner" style="display:none;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,108,247,0.08));border:1px solid rgba(79,142,247,0.25);border-left:3px solid var(--accent);border-radius:12px;margin:10px 14px;padding:12px 14px;">
-  <div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">📋 งานจาก Planner</div>
-  <div id="plannerSeqText" style="font-size:14px;font-weight:800"></div>
-  <div id="plannerCustText" style="font-size:12px;color:var(--muted2);margin-top:2px"></div>
-  <div id="plannerDestText" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+<!-- Hidden inputs for JS compatibility -->
+<input id="driverName"  type="hidden" />
+<input id="driverPhone" type="hidden" />
+<input id="driverPlate" type="hidden" />
+<input id="destInput"   type="hidden" />
+<input id="btnClearDest" type="hidden" />
+
+<!-- Waiting Screen (แสดงเมื่อไม่มี ?order=) -->
+<div id="waitingScreen" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;min-height:60vh">
+  <div style="font-size:64px;margin-bottom:20px">📋</div>
+  <div style="font-size:20px;font-weight:800;margin-bottom:8px">รอรับ Link งาน</div>
+  <div style="font-size:14px;color:var(--muted2);line-height:1.6">เปิด Link ที่ได้รับจาก Planner<br>เพื่อเริ่มงานส่งสินค้า</div>
 </div>
 
-<!-- Driver Info Card -->
-<div class="driver-card">
-  <div class="driver-card-header" onclick="toggleDriverCard()">
-    <span>👤 ข้อมูลพนักงานส่ง</span>
-    <span id="driverToggleIcon" style="color:var(--muted)">▼</span>
-  </div>
-  <div class="driver-card-body" id="driverCardBody">
-    <div class="form-group">
-      <label>ชื่อพนักงาน</label>
-      <input id="driverName" type="text" placeholder="ชื่อ-นามสกุล" />
+<!-- Main Driver Content (แสดงเมื่อมี ?order=) -->
+<div id="mainDriverContent" style="display:none">
+
+  <!-- Job Info Card -->
+  <div style="margin:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+    <div style="padding:10px 14px 0">
+      <div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.6px">📋 งานจาก Planner</div>
     </div>
-    <div class="form-group">
-      <label>เบอร์โทร</label>
-      <input id="driverPhone" type="tel" placeholder="0812345678" />
+    <div style="padding:8px 14px 12px">
+      <div style="font-size:18px;font-weight:800;color:var(--accent);letter-spacing:0.5px" id="jobOrderId">—</div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600">
+          👤 <span id="jobDriverName">—</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600">
+          🚙 <span id="jobDriverPlate">—</span>
+        </div>
+      </div>
     </div>
-    <div class="form-group full">
-      <label>ทะเบียนรถ</label>
-      <input id="driverPlate" type="text" placeholder="กข 1234 กรุงเทพ" />
-    </div>
   </div>
-</div>
 
-<!-- Status Bar -->
-<div class="status-bar">
-  <div class="status-chip" id="chipGPS"><div class="dot"></div><span>GPS: รอ</span></div>
-  <div class="status-chip" id="chipMap"><div class="dot"></div><span>แผนที่: โหลด</span></div>
-  <div class="status-chip" id="chipFB" ><div class="dot"></div><span>Firebase: —</span></div>
-</div>
-
-<!-- Mode Toggle -->
-<div class="dest-mode-toggle">
-  <button class="mode-btn active" id="modeSearch" onclick="switchMode('search')">🔍 ค้นหาชื่อ/ที่อยู่</button>
-  <button class="mode-btn"        id="modeCoords" onclick="switchMode('coords')">📌 กรอกพิกัด Lat/Lng</button>
-</div>
-
-<!-- Destination Search -->
-<div class="dest-section" id="searchSection">
-  <div class="dest-label">🏪 ปลายทาง</div>
-  <input id="destInput" type="text" placeholder="ค้นหาที่อยู่ลูกค้า..." autocomplete="off" />
-  <button class="btn-x" id="btnClearDest" onclick="clearDestination()">✕</button>
-</div>
-
-<!-- Coords Input -->
-<div class="coords-section" id="coordsSection">
-  <div class="coords-field">
-    <label>Latitude</label>
-    <input id="inputLat" type="number" step="any" placeholder="13.7563" />
+  <!-- Multi-Stop List -->
+  <div class="stops-section show" id="stopsSection" style="margin:0 14px 10px">
+    <div class="stops-title">📍 จุดส่งทั้งหมด</div>
+    <div id="stopsList"></div>
   </div>
-  <div class="coords-field">
-    <label>Longitude</label>
-    <input id="inputLng" type="number" step="any" placeholder="100.5018" />
+
+  <!-- Planner banner (ข้อมูลจุดปัจจุบัน) -->
+  <div id="plannerBanner" style="display:none;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,108,247,0.08));border:1px solid rgba(79,142,247,0.25);border-left:3px solid var(--accent);border-radius:12px;margin:0 14px 10px;padding:12px 14px;">
+    <div style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px">📍 จุดส่งปัจจุบัน</div>
+    <div id="plannerSeqText" style="font-size:14px;font-weight:800"></div>
+    <div id="plannerCustText" style="font-size:12px;color:var(--muted2);margin-top:2px"></div>
+    <div id="plannerDestText" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
   </div>
-  <button class="btn-confirm-coords" onclick="confirmCoords()">📌 ปัก</button>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-chip" id="chipGPS"><div class="dot"></div><span>GPS: รอ</span></div>
+    <div class="status-chip" id="chipMap"><div class="dot"></div><span>แผนที่: โหลด</span></div>
+    <div class="status-chip" id="chipFB" ><div class="dot"></div><span>Firebase: —</span></div>
+  </div>
+
 </div>
-<div class="coords-hint" id="coordsHint" style="display:none">💡 วาง "lat, lng" แล้วกด ปัก — หรือรับพิกัดจาก Google Maps / Line Location</div>
+
+<!-- Delivery Content Area (shown after order loaded) -->
+<div id="deliveryArea" style="display:none">
 
 <!-- Map -->
 <div id="map">
@@ -339,6 +353,8 @@
   <div class="log-list" id="logList"><div class="log-empty">ยังไม่มีการ Check-in</div></div>
 </div>
 
+</div><!-- /deliveryArea -->
+
 <!-- Done Screen -->
 <div class="done-screen" id="doneScreen">
   <div class="done-checkmark">✅</div>
@@ -381,6 +397,8 @@
   let orderId = genOrderId(), orderActive = false, isPlannerOrder = false;
   let broadcastTimer = null, lastRouteCalc = 0;
   let checkInCount = 0, logs = [], customerLink = '';
+  // Multi-stop (TMT)
+  let isTMTOrder = false, currentStopNum = 1, totalStops = 1, stopsData = {};
   document.getElementById('orderBadge').textContent = orderId;
 
   function initMap() {
@@ -396,69 +414,159 @@
       map, suppressMarkers:true,
       polylineOptions:{strokeColor:'#4f8ef7',strokeWeight:5,strokeOpacity:0.8}
     });
-    const ac = new google.maps.places.Autocomplete(
-      document.getElementById('destInput'),
-      {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}}
-    );
-    ac.addListener('place_changed', () => {
-      const p = ac.getPlace(); if (!p.geometry) return;
-      destPlace = p;
-      document.getElementById('btnClearDest').style.display = 'block';
-      document.getElementById('btnGMaps').disabled = false;
-      placeDestMarker(p.geometry.location);
-      if (currentPos) calcRoute();
-    });
+    // Destination input ถูกกรอกโดย Planner ผ่าน checkPlannerOrder (ไม่ต้อง Autocomplete)
     if (currentPos) updateMyPin(currentPos);
     checkPlannerOrder(); // ตรวจสอบ ?order= จาก URL
   }
 
   function checkPlannerOrder() {
     const urlOrder = new URLSearchParams(window.location.search).get('order');
-    if (!urlOrder) return;
+    if (!urlOrder) {
+      // ไม่มี ?order= → แสดงหน้ารอ Link
+      document.getElementById('waitingScreen').style.display = 'flex';
+      return;
+    }
     orderId = urlOrder;
     isPlannerOrder = true;
+    isTMTOrder = urlOrder.startsWith('TMT');
     document.getElementById('orderBadge').textContent = orderId;
+
     db.ref('orders/'+urlOrder).once('value').then(snap => {
       if (!snap.exists()) { showToast('⚠️ ไม่พบ Order '+urlOrder); return; }
       const data = snap.val();
+
+      // ── แสดง UI งาน ────────────────────────────────
+      document.getElementById('waitingScreen').style.display  = 'none';
+      document.getElementById('mainDriverContent').style.display = 'block';
+      document.getElementById('deliveryArea').style.display   = 'block';
+
+      // ── ข้อมูลคนขับ (read-only display + hidden inputs) ────
       if (data.driver) {
         document.getElementById('driverName').value  = data.driver.name  || '';
         document.getElementById('driverPhone').value = data.driver.phone || '';
         document.getElementById('driverPlate').value = data.driver.plate || '';
+        document.getElementById('jobDriverName').textContent  = data.driver.name  || '—';
+        document.getElementById('jobDriverPlate').textContent = data.driver.plate || '—';
       }
-      // แสดง banner
-      document.getElementById('plannerBanner').style.display = 'block';
-      document.getElementById('plannerSeqText').textContent  = `งานที่ ${data.seq||'—'} · ${urlOrder}`;
-      const ci = [data.customer?.name, data.customer?.phone?'📞 '+data.customer.phone:''].filter(Boolean).join(' · ');
-      document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
-      document.getElementById('plannerDestText').textContent = data.customer?.address ? '📍 '+data.customer.address : '';
-      document.getElementById('btnStart').textContent = `🚀 เริ่มงานที่ ${data.seq||1}`;
-      // Auto-set destination
-      if (data.customer?.lat && data.customer?.lng) {
-        const loc = new google.maps.LatLng(data.customer.lat, data.customer.lng);
-        destPlace = {geometry:{location:loc}, name:data.customer.name||'', formatted_address:data.customer.address||''};
-        document.getElementById('destInput').value = data.customer.address || data.customer.name || '';
-        document.getElementById('btnClearDest').style.display = 'block';
-        document.getElementById('btnGMaps').disabled = false;
-        placeDestMarker(loc);
-        if (currentPos) calcRoute();
-      }
-      // Customer link พร้อมใช้ทันที
+      document.getElementById('jobOrderId').textContent = urlOrder;
+
       const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
-      customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
-      document.getElementById('linkUrl').textContent = customerLink;
-      document.getElementById('linkBox').style.display = 'block';
-      document.getElementById('btnLink').disabled = false;
-      // ถ้า order กำลัง delivering อยู่แล้ว → resume
-      if (data.status === 'delivering') {
-        orderActive = true;
-        startBroadcast();
-        if (currentPos) broadcastNow();
-        document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
-        document.getElementById('btnStart').disabled = true;
-        showToast(`🔄 Order ${urlOrder} กำลังดำเนินการ`);
+
+      if (isTMTOrder && data.stops) {
+        // ── TMT Multi-Stop ──────────────────────────────
+        stopsData    = data.stops;
+        totalStops   = data.totalStops || Object.keys(data.stops).length;
+        currentStopNum = data.currentStop || 1;
+
+        // Advance past already-arrived stops
+        while (currentStopNum <= totalStops && stopsData[currentStopNum]?.status === 'arrived') {
+          currentStopNum++;
+        }
+
+        document.getElementById('stopsSection').classList.add('show');
+        renderStopsList();
+
+        // Set destination to current stop
+        advanceToStop(currentStopNum, base, data);
+
+        // ถ้า order กำลัง delivering อยู่แล้ว → resume
+        if (data.status === 'delivering') {
+          orderActive = true;
+          startBroadcast();
+          if (currentPos) broadcastNow();
+          document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+          document.getElementById('btnStart').disabled = true;
+          showToast(`🔄 Order ${urlOrder} กำลังดำเนินการ`);
+        }
+
+      } else {
+        // ── ORD Legacy Single-Stop ──────────────────────
+        document.getElementById('plannerBanner').style.display = 'block';
+        document.getElementById('plannerSeqText').textContent  = `งานที่ ${data.seq||'—'} · ${urlOrder}`;
+        const ci = [data.customer?.name, data.customer?.phone?'📞 '+data.customer.phone:''].filter(Boolean).join(' · ');
+        document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
+        document.getElementById('plannerDestText').textContent = data.customer?.address ? '📍 '+data.customer.address : '';
+        document.getElementById('btnStart').textContent = `🚀 เริ่มงานที่ ${data.seq||1}`;
+        if (data.customer?.lat && data.customer?.lng) {
+          const loc = new google.maps.LatLng(data.customer.lat, data.customer.lng);
+          destPlace = {geometry:{location:loc}, name:data.customer.name||'', formatted_address:data.customer.address||''};
+          document.getElementById('destInput').value = data.customer.address || data.customer.name || '';
+          document.getElementById('btnClearDest').style.display = 'block';
+          document.getElementById('btnGMaps').disabled = false;
+          placeDestMarker(loc);
+          if (currentPos) calcRoute();
+        }
+        customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
+        document.getElementById('linkUrl').textContent = customerLink;
+        document.getElementById('linkBox').style.display = 'block';
+        document.getElementById('btnLink').disabled = false;
+        if (data.status === 'delivering') {
+          orderActive = true; startBroadcast();
+          if (currentPos) broadcastNow();
+          document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
+          document.getElementById('btnStart').disabled = true;
+          showToast(`🔄 Order ${urlOrder} กำลังดำเนินการ`);
+        }
       }
     }).catch(()=>showToast('❌ โหลด Order ไม่สำเร็จ'));
+  }
+
+  function advanceToStop(stopN, base, data) {
+    const stop = stopsData[stopN];
+    if (!stop) return;
+    currentStopNum = stopN;
+
+    // Update button
+    document.getElementById('btnStart').textContent = `🚀 เริ่มงาน (จุด ${stopN}/${totalStops})`;
+
+    // Banner
+    document.getElementById('plannerBanner').style.display = 'block';
+    document.getElementById('plannerSeqText').textContent  = `จุดที่ ${stopN}/${totalStops} · ${orderId}`;
+    const ci = [stop.customer?.name, stop.customer?.phone?'📞 '+stop.customer.phone:''].filter(Boolean).join(' · ');
+    document.getElementById('plannerCustText').textContent = ci ? '👤 '+ci : '';
+    document.getElementById('plannerDestText').textContent = stop.customer?.address ? '📍 '+stop.customer.address : '';
+
+    // Destination
+    if (stop.customer?.lat && stop.customer?.lng) {
+      const loc = new google.maps.LatLng(stop.customer.lat, stop.customer.lng);
+      destPlace = {geometry:{location:loc}, name:stop.customer.name||'', formatted_address:stop.customer.address||''};
+      document.getElementById('destInput').value = stop.customer.address || stop.customer.name || '';
+      document.getElementById('btnClearDest').style.display = 'block';
+      document.getElementById('btnGMaps').disabled = false;
+      placeDestMarker(loc);
+      if (currentPos) calcRoute();
+    }
+
+    // Customer link for this stop
+    if (!base) base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
+    customerLink = `${base}track.html?order=${orderId}&stop=${stopN}&openExternalBrowser=1`;
+    document.getElementById('linkUrl').textContent = customerLink;
+    document.getElementById('linkBox').style.display = 'block';
+    document.getElementById('btnLink').disabled = false;
+
+    // ปุ่มจบงาน
+    document.getElementById('btnPOD').textContent = `✅ ส่งจบจุดที่ ${stopN}`;
+    renderStopsList();
+  }
+
+  function renderStopsList() {
+    const html = Object.entries(stopsData).map(([n, s]) => {
+      const num = parseInt(n);
+      const isDone   = s.status === 'arrived';
+      const isActive = num === currentStopNum && !isDone;
+      const cls = isDone ? 'done' : isActive ? 'active' : 'pending';
+      const dotIcon = isDone ? '✅' : isActive ? `${num}` : `${num}`;
+      const badge = isDone ? `<span class="stop-badge done">✅ ส่งแล้ว</span>` : isActive ? `<span class="stop-badge active">📍 จุดนี้</span>` : `<span class="stop-badge pending">รอ</span>`;
+      return `<div class="stop-item ${cls}">
+        <div class="stop-dot">${dotIcon}</div>
+        <div style="flex:1;min-width:0">
+          <div class="stop-name">${s.customer?.name||'จุดที่ '+n}</div>
+          <div class="stop-addr">${s.customer?.address||'—'}</div>
+        </div>
+        ${badge}
+      </div>`;
+    }).join('');
+    document.getElementById('stopsList').innerHTML = html;
   }
 
   function startGPS() {
@@ -587,9 +695,8 @@
     const name  = document.getElementById('driverName').value.trim();
     const phone = document.getElementById('driverPhone').value.trim();
     const plate = document.getElementById('driverPlate').value.trim();
-    if (!name||!phone||!plate) { showToast('⚠️ กรอกข้อมูลพนักงานให้ครบก่อน'); return; }
-    if (!destPlace)             { showToast('⚠️ เลือกปลายทางก่อน'); return; }
-    if (!currentPos)            { showToast('⚠️ รอ GPS ล็อคก่อน'); return; }
+    if (!destPlace)  { showToast('⚠️ ยังไม่มีข้อมูลปลายทางจาก Planner'); return; }
+    if (!currentPos) { showToast('⚠️ รอ GPS ล็อคก่อน'); return; }
     orderActive = true;
     const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
     customerLink = `${base}track.html?order=${orderId}&openExternalBrowser=1`;
@@ -617,8 +724,6 @@
     broadcastNow();
     startBroadcast();
     saveOrderToStorage();
-    document.getElementById('driverCardBody').classList.add('hidden');
-    document.getElementById('driverToggleIcon').textContent = '▶';
     document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
     document.getElementById('btnStart').disabled = true;
     showToast(`🚀 Order ${orderId} เริ่มแล้ว!`);
@@ -627,7 +732,7 @@
   function startBroadcast() {
     if (broadcastTimer) return;
     // broadcast ทุก 10 วินาที ตลอดเวลา ไม่จำกัดระยะทาง
-    broadcastTimer = setInterval(broadcastNow, 15000);
+    broadcastTimer = setInterval(broadcastNow, 30000); // 30 วินาที
   }
   function stopBroadcast() {
     clearInterval(broadcastTimer); broadcastTimer = null;
@@ -672,17 +777,46 @@
       dest:destPlace?(destPlace.name||destPlace.formatted_address):null,eta:destPlace?document.getElementById('etaTime').textContent:null});
     renderLog();
     if (orderActive) {
-      db.ref(`orders/${orderId}/status`).set('arrived');
-      db.ref(`orders/${orderId}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
-      stopBroadcast();
-      localStorage.removeItem(RESUME_KEY);
-      // แสดง Done Screen
-      const now2 = new Date();
-      document.getElementById('doneOrderId').textContent = orderId;
-      document.getElementById('doneTime').textContent    = now2.toLocaleTimeString('th-TH');
-      document.getElementById('doneCoords').textContent  = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-      document.getElementById('doneScreen').classList.add('show');
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      if (isTMTOrder) {
+        // ── Multi-Stop: mark this stop arrived ──────────
+        const now2 = new Date();
+        db.ref(`orders/${orderId}/stops/${currentStopNum}/status`).set('arrived');
+        db.ref(`orders/${orderId}/stops/${currentStopNum}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+
+        const nextStop = currentStopNum + 1;
+        if (nextStop <= totalStops) {
+          // มีจุดต่อไป → advance
+          db.ref(`orders/${orderId}/currentStop`).set(nextStop);
+          stopsData[currentStopNum] = { ...stopsData[currentStopNum], status: 'arrived' };
+          showToast(`✅ ส่งจบจุดที่ ${currentStopNum} แล้ว → จุดที่ ${nextStop}`);
+          const base = window.location.href.replace(/[^\/]*(\?.*)?$/,'');
+          advanceToStop(nextStop, base, null);
+          if (currentPos) broadcastNow();
+        } else {
+          // จุดสุดท้าย → จบงาน
+          db.ref(`orders/${orderId}/status`).set('completed');
+          db.ref(`orders/${orderId}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+          stopBroadcast();
+          localStorage.removeItem(RESUME_KEY);
+          document.getElementById('doneOrderId').textContent = orderId;
+          document.getElementById('doneTime').textContent    = now2.toLocaleTimeString('th-TH');
+          document.getElementById('doneCoords').textContent  = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          document.getElementById('doneScreen').classList.add('show');
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        }
+      } else {
+        // ── Single-Stop (ORD legacy) ─────────────────────
+        db.ref(`orders/${orderId}/status`).set('arrived');
+        db.ref(`orders/${orderId}/arrivedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+        stopBroadcast();
+        localStorage.removeItem(RESUME_KEY);
+        const now2 = new Date();
+        document.getElementById('doneOrderId').textContent = orderId;
+        document.getElementById('doneTime').textContent    = now2.toLocaleTimeString('th-TH');
+        document.getElementById('doneCoords').textContent  = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('doneScreen').classList.add('show');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }
     } else {
       showToast(`✅ POD #${checkInCount} บันทึกแล้ว`);
     }
@@ -695,26 +829,21 @@
     document.getElementById('doneScreen').classList.remove('show');
     // reset state
     orderActive = false; isPlannerOrder = false;
-    orderId = genOrderId();
-    document.getElementById('orderBadge').textContent = orderId;
+    isTMTOrder = false; currentStopNum = 1; totalStops = 1; stopsData = {};
+    document.getElementById('stopsList').innerHTML = '';
+    orderId = '';
+    document.getElementById('orderBadge').textContent = '—';
     document.getElementById('driverName').value  = '';
     document.getElementById('driverPhone').value = '';
     document.getElementById('driverPlate').value = '';
-    document.getElementById('destInput').value   = '';
-    document.getElementById('plannerBanner').style.display = 'none';
-    document.getElementById('linkBox').style.display       = 'none';
-    document.getElementById('btnStart').textContent  = '🚀 เริ่มงาน';
-    document.getElementById('btnStart').disabled     = false;
-    document.getElementById('btnGMaps').disabled     = true;
-    document.getElementById('btnLink').disabled      = true;
-    document.getElementById('btnPOD').disabled       = true;
-    document.getElementById('btnClearDest').style.display = 'none';
     destPlace = null; customerLink = '';
     logs = []; checkInCount = 0; broadcastCount = 0;
     renderLog();
-    setChip('chipGPS','idle','GPS: รอ...');
-    setChip('chipFB','idle','Firebase: —');
-    showToast('🚀 พร้อมเริ่มงานใหม่!');
+    // กลับหน้า waiting
+    document.getElementById('mainDriverContent').style.display = 'none';
+    document.getElementById('deliveryArea').style.display      = 'none';
+    document.getElementById('waitingScreen').style.display     = 'flex';
+    showToast('✅ จบงานแล้ว รอ Link งานใหม่จาก Planner');
   }
 
   function haversine(la1,lo1,la2,lo2) {
@@ -744,14 +873,7 @@
   }
   function clearLog() { logs=[]; checkInCount=0; renderLog(); }
 
-  document.getElementById('inputLat').addEventListener('paste', e => {
-    const text = (e.clipboardData||window.clipboardData).getData('text').trim();
-    const parts = text.split(/[\s,]+/);
-    if (parts.length>=2) {
-      const a=parseFloat(parts[0]),b=parseFloat(parts[1]);
-      if (!isNaN(a)&&!isNaN(b)) { e.preventDefault(); document.getElementById('inputLat').value=a; document.getElementById('inputLng').value=b; showToast('📋 วางพิกัดแล้ว กด ปัก ได้เลย'); }
-    }
-  });
+  // coords paste listener removed (no coords inputs)
 
   const RESUME_KEY = 'pod_active_order';
   function saveOrderToStorage() {
@@ -785,17 +907,12 @@
     if (saved.destLat&&saved.destLng) {
       const loc = new google.maps.LatLng(saved.destLat,saved.destLng);
       destPlace = {geometry:{location:loc},name:saved.destName||'',formatted_address:saved.destName||''};
-      document.getElementById('destInput').value = saved.destName||'';
-      document.getElementById('btnClearDest').style.display = 'block';
       document.getElementById('btnGMaps').disabled = false;
       if (map) { placeDestMarker(loc); if (currentPos) calcRoute(); }
     }
     orderActive = true;
-    // broadcast ทันทีที่ resume ถ้า GPS ล็อคแล้ว และเริ่ม interval
     if (currentPos) broadcastNow();
     startBroadcast();
-    document.getElementById('driverCardBody').classList.add('hidden');
-    document.getElementById('driverToggleIcon').textContent = '▶';
     document.getElementById('btnStart').textContent = '✅ Order กำลังดำเนินการ';
     document.getElementById('btnStart').disabled = true;
     showToast(`🔄 กลับ Order ${orderId} แล้ว!`);
