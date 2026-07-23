@@ -1393,6 +1393,15 @@
   let modalLocationRef = null, modalLastRoute = 0;
   let currentModalOrderId = null;
 
+  function calcModalBearing(from, to) {
+    const toRad = d => d * Math.PI / 180;
+    const dLng  = toRad(to.lng - from.lng);
+    const lat1  = toRad(from.lat), lat2 = toRad(to.lat);
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
   // หาพิกัดปลายทางของ Order — รองรับ ORD และ TMT
   function getModalDestPos(o) {
     if (o.stops) {
@@ -1517,12 +1526,16 @@
 
     const driverPos = { lat: loc.lat, lng: loc.lng };
 
-    // ไอคอนหมุดรถ — static mode ใช้ pin ปกติ (ไม่ใช่ลูกศร)
+    // ไอคอนหมุดรถ — static mode ใช้ circle, live mode ใช้ลูกศรหันตามทิศจริง
+    const prevPos = modalDriverMarker ? modalDriverMarker.getPosition() : null;
+    const bearing = (!staticMode && prevPos)
+      ? calcModalBearing({lat:prevPos.lat(),lng:prevPos.lng()}, {lat:loc.lat,lng:loc.lng}) : 0;
     const driverIcon = staticMode
       ? { path: google.maps.SymbolPath.CIRCLE, scale: 9,
           fillColor: '#94a3b8', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
       : { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 6, fillColor: '#4f8ef7', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 };
+          scale: 6, fillColor: '#4f8ef7', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2,
+          rotation: bearing };
 
     if (!modalDriverMarker) {
       modalDriverMarker = new google.maps.Marker({
