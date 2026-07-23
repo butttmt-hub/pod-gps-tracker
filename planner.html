@@ -767,6 +767,26 @@
     }
   });
 
+  // ── Paste พิกัด "lat, lng" ลง Lat field → แยกใส่ทั้ง 2 fields อัตโนมัติ ──
+  document.addEventListener('paste', e => {
+    const target = e.target;
+    if (!target.id || !target.id.startsWith('cLat_')) return;
+    const n = target.id.split('_')[1];
+    const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+    // รองรับรูปแบบ: "13.7563, 100.5018" หรือ "13.7563,100.5018" หรือ "13.7563 100.5018"
+    const parts = text.split(/[\s,]+/);
+    if (parts.length >= 2) {
+      const lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        e.preventDefault();
+        document.getElementById(`cLat_${n}`).value = lat;
+        document.getElementById(`cLng_${n}`).value = lng;
+        document.getElementById(`cCoordsStatus_${n}`).textContent = `📋 วางพิกัดแล้ว: ${lat.toFixed(5)}, ${lng.toFixed(5)} — กด ยืนยันพิกัด`;
+        document.getElementById(`cLng_${n}`).focus();
+      }
+    }
+  });
+
   function showDashboard() {
     document.getElementById('mainHeader').style.display    = 'flex';
     document.getElementById('summaryBar').style.display    = 'grid';
@@ -856,6 +876,9 @@
         <div class="create-group">
           <div class="create-label">ชื่อสถานที่ (ไม่บังคับ)</div>
           <input class="create-input" id="cCoordsName_${n}" placeholder="ชื่อสถานที่" />
+        </div>
+        <div style="background:rgba(79,142,247,0.07);border:1px solid rgba(79,142,247,0.18);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:11px;color:var(--muted2);line-height:1.6">
+          💡 <b>วิธีง่ายสุด:</b> เปิด Google Maps บน PC → คลิกขวาที่จุดที่ต้องการ → เลือก <b>พิกัด</b> → วางในช่อง Latitude ได้เลย
         </div>
         <button onclick="confirmStopCoords(${n})" style="margin-top:6px;width:100%;padding:9px;border:none;border-radius:8px;background:rgba(79,142,247,0.15);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📌 ยืนยันพิกัด</button>
         <div id="cCoordsStatus_${n}" style="font-size:11px;color:var(--muted);margin-top:4px;min-height:16px"></div>
