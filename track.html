@@ -290,6 +290,7 @@
       map, suppressMarkers:true,
       polylineOptions:{strokeColor:'#4f8ef7',strokeWeight:5,strokeOpacity:0.8}
     });
+    placeCustomerMarkerIfReady(); // วางหมุดทันทีถ้า customerPos มีอยู่แล้ว
     loadOrder();
   }
 
@@ -370,11 +371,7 @@
       // Customer destination from this stop
       if (stop.customer && stop.customer.lat && stop.customer.lng) {
         customerPos = {lat: stop.customer.lat, lng: stop.customer.lng};
-        if (map && !customerMarker) {
-          customerMarker = new google.maps.Marker({position:customerPos, map, zIndex:20,
-            icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            animation:google.maps.Animation.DROP});
-        }
+        placeCustomerMarkerIfReady();
       }
       // Status comes from this stop's status
       const stopStatus = stop.status || 'delivering';
@@ -392,18 +389,25 @@
     }
     if (data.customer) {
       customerPos = {lat: data.customer.lat, lng: data.customer.lng};
-      if (map && !customerMarker) {
-        customerMarker = new google.maps.Marker({position:customerPos, map, zIndex:20,
-          icon:'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          animation:google.maps.Animation.DROP});
-      }
+      placeCustomerMarkerIfReady();
     }
     if (data.status) setStatus(data.status);
     if (data.location && data.status !== 'arrived' && data.status !== 'cancelled') renderMap(data.location);
   }
 
+  function placeCustomerMarkerIfReady() {
+    if (!map || !customerPos || customerMarker) return;
+    customerMarker = new google.maps.Marker({
+      position: customerPos, map, zIndex: 20,
+      icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+      animation: google.maps.Animation.DROP,
+      title: '📍 จุดส่งของคุณ'
+    });
+  }
+
   function renderMap(loc) {
     if (!map) return;
+    placeCustomerMarkerIfReady(); // วางหมุดปลายทางทันทีที่ map พร้อม
     const pos = {lat: loc.lat, lng: loc.lng};
     const mapLoadingEl = document.getElementById('mapLoading');
     if (mapLoadingEl) mapLoadingEl.style.display = 'none';
