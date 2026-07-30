@@ -127,15 +127,17 @@
     .sum-card::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
     }
-    .sum-card.all::before    { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
-    .sum-card.active::before { background: linear-gradient(90deg, var(--orange), #f59e0b); }
-    .sum-card.done::before   { background: linear-gradient(90deg, var(--green), #6ee7b7); }
-    .sum-card.exp::before    { background: linear-gradient(90deg, var(--red), #fca5a5); }
+    .sum-card.all::before     { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .sum-card.active::before  { background: linear-gradient(90deg, var(--orange), #f59e0b); }
+    .sum-card.done::before    { background: linear-gradient(90deg, var(--green), #6ee7b7); }
+    .sum-card.pending::before { background: linear-gradient(90deg, #facc15, #fde68a); }
+    .sum-card.exp::before     { background: linear-gradient(90deg, var(--red), #fca5a5); }
     .sum-num   { font-size: 32px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
     .sum-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
     .sum-icon  { position: absolute; top: 16px; right: 16px; font-size: 22px; opacity: 0.25; }
     .c-accent { color: var(--accent); } .c-orange { color: var(--orange); }
     .c-green  { color: var(--green);  } .c-red    { color: var(--red);    }
+    .c-yellow { color: #facc15; }
 
     /* ── Date Filter Bar ───────────────────────────── */
     .date-filter-bar {
@@ -533,6 +535,11 @@
     <div class="sum-num c-green" id="sumDone">0</div>
     <div class="sum-label">ส่งแล้ว</div>
   </div>
+  <div class="sum-card pending">
+    <div class="sum-icon">⏳</div>
+    <div class="sum-num c-yellow" id="sumPending">0</div>
+    <div class="sum-label">รอคนขับ</div>
+  </div>
   <div class="sum-card exp">
     <div class="sum-icon">⏰</div>
     <div class="sum-num c-red" id="sumExpired">0</div>
@@ -555,6 +562,7 @@
   <button class="filter-btn active" onclick="setFilter('all',this)">ทั้งหมด</button>
   <button class="filter-btn" onclick="setFilter('delivering',this)">🚚 กำลังส่ง</button>
   <button class="filter-btn" onclick="setFilter('arrived',this)">✅ ส่งแล้ว</button>
+  <button class="filter-btn" onclick="setFilter('pending',this)">⏳ รอคนขับ</button>
   <button class="filter-btn" onclick="setFilter('expired',this)">⏰ หมดอายุ</button>
   <button class="filter-btn" onclick="setFilter('cancelled',this)">🚫 ยกเลิก</button>
   <div class="search-wrap">
@@ -1140,17 +1148,19 @@
     const q = (document.getElementById('searchInput').value || '').toLowerCase();
     const entries = Object.entries(allOrders).reverse();
 
-    let cAll=0, cActive=0, cDone=0, cExp=0;
+    let cAll=0, cActive=0, cDone=0, cPending=0, cExp=0;
     entries.forEach(([,o]) => {
       const s = getStatus(o); cAll++;
       if (s==='delivering') cActive++;
       else if (s==='arrived') cDone++;
+      else if (s==='pending') cPending++;
       else if (s==='cancelled') {} // ไม่นับใน summary หลัก
-      else cExp++;
+      else if (s==='expired') cExp++;
     });
     document.getElementById('sumAll').textContent     = cAll;
     document.getElementById('sumActive').textContent  = cActive;
     document.getElementById('sumDone').textContent    = cDone;
+    document.getElementById('sumPending').textContent = cPending;
     document.getElementById('sumExpired').textContent = cExp;
 
     const todayStr     = toDateStr(new Date());
@@ -1475,29 +1485,35 @@
       });
     } else {
       // ── งานกำลังส่ง: destination marker + real-time ──────
-      if (modalMap) {
-        const destPos = getModalDestPos(o);
-        if (destPos) {
-          if (!modalCustomerMarker) {
-            modalCustomerMarker = new google.maps.Marker({
-              position: destPos, map: modalMap, zIndex: 20,
-              icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-              animation: google.maps.Animation.DROP,
-              title: getModalDestLabel(o)
-            });
-          } else {
-            modalCustomerMarker.setPosition(destPos);
-            modalCustomerMarker.setMap(modalMap);
-            modalCustomerMarker.setTitle(getModalDestLabel(o));
-          }
-        }
-      }
+      // วางหมุดปลายทาง (ทำทุกครั้ง ไม่ว่า map จะพร้อมหรือยัง)
+      modalPendingDestPos   = getModalDestPos(o);
+      modalPendingDestLabel = getModalDestLabel(o);
+      placeModalDestIfReady();
+
       if (modalLocationRef) modalLocationRef.off();
       modalLocationRef = db.ref('orders/' + id + '/location');
       modalLocationRef.on('value', snap => {
         if (!snap.exists()) return;
         updateModalDriver(snap.val(), o, false);
       });
+    }
+  }
+
+  // วางหมุดปลายทางใน Planner map เมื่อทั้ง map และ destPos พร้อม
+  let modalPendingDestPos = null, modalPendingDestLabel = '';
+  function placeModalDestIfReady() {
+    if (!modalMap || !modalPendingDestPos) return;
+    if (!modalCustomerMarker) {
+      modalCustomerMarker = new google.maps.Marker({
+        position: modalPendingDestPos, map: modalMap, zIndex: 20,
+        icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+        animation: google.maps.Animation.DROP,
+        title: modalPendingDestLabel
+      });
+    } else {
+      modalCustomerMarker.setPosition(modalPendingDestPos);
+      modalCustomerMarker.setMap(modalMap);
+      modalCustomerMarker.setTitle(modalPendingDestLabel);
     }
   }
 
@@ -1512,6 +1528,7 @@
       map: modalMap, suppressMarkers: true,
       polylineOptions: { strokeColor: '#4f8ef7', strokeWeight: 5, strokeOpacity: 0.8 }
     });
+    placeModalDestIfReady(); // วางหมุดปลายทางทันทีที่ map พร้อม
   }
 
   function updateModalDriver(loc, o, staticMode) {
@@ -1598,6 +1615,7 @@
     document.getElementById('modalEta').style.display    = 'none';
     modalMap = null; modalDirService = null; modalDirRenderer = null;
     modalLastRoute = 0; currentModalOrderId = null;
+    modalPendingDestPos = null; modalPendingDestLabel = '';
   }
 
   function handleMapOverlayClick(e) {
