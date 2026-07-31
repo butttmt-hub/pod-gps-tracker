@@ -1545,8 +1545,9 @@
 
     // ไอคอนหมุดรถ — static mode ใช้ circle, live mode ใช้ลูกศรหันตามทิศจริง
     const prevPos = modalDriverMarker ? modalDriverMarker.getPosition() : null;
-    const bearing = (!staticMode && prevPos)
-      ? calcModalBearing({lat:prevPos.lat(),lng:prevPos.lng()}, {lat:loc.lat,lng:loc.lng}) : 0;
+    const bearing = staticMode ? 0
+      : (loc.heading != null && !isNaN(loc.heading)) ? loc.heading
+      : (prevPos ? calcModalBearing({lat:prevPos.lat(),lng:prevPos.lng()}, {lat:loc.lat,lng:loc.lng}) : 0);
     const driverIcon = staticMode
       ? { path: google.maps.SymbolPath.CIRCLE, scale: 9,
           fillColor: '#94a3b8', fillOpacity: 1, strokeColor: 'white', strokeWeight: 2 }
