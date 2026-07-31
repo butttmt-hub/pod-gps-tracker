@@ -421,7 +421,9 @@
     const mapLoadingEl = document.getElementById('mapLoading');
     if (mapLoadingEl) mapLoadingEl.style.display = 'none';
 
-    const rotation = lastDriverPos ? calcBearing(lastDriverPos, pos) : 0;
+    const rotation = (loc.heading != null && !isNaN(loc.heading))
+      ? loc.heading
+      : (lastDriverPos ? calcBearing(lastDriverPos, pos) : 0);
     const icon = {path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale:6,
       fillColor:'#4f8ef7', fillOpacity:1, strokeColor:'white', strokeWeight:2, rotation};
 
