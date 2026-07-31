@@ -799,12 +799,16 @@
   let broadcastCount = 0;
   function broadcastNow() {
     if (!currentPos||!orderId||!orderActive) return;
-    db.ref(`orders/${orderId}/location`).set({
+    const locData = {
       lat: currentPos.coords.latitude,
       lng: currentPos.coords.longitude,
       accuracy: currentPos.coords.accuracy,
       timestamp: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
+    };
+    if (currentPos.coords.heading != null && !isNaN(currentPos.coords.heading)) {
+      locData.heading = currentPos.coords.heading;
+    }
+    db.ref(`orders/${orderId}/location`).set(locData).then(() => {
       broadcastCount++;
       setChip('chipFB', 'good', `Firebase: 📡 #${broadcastCount}`);
     }).catch(err => {
