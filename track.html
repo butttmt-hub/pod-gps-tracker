@@ -266,6 +266,7 @@
   const isTMT   = orderId ? orderId.startsWith('TMT') : false;
   let map, driverMarker, customerMarker, dirService, dirRenderer;
   let lastDriverPos = null, customerPos = null, lastRouteCalc = 0;
+  let mapFitDone = false; // fitBounds แค่ครั้งแรกเท่านั้น
   const ETA_THROTTLE = 15000;
 
   function showError(icon, title, msg, sub2) {
@@ -439,10 +440,11 @@
       document.getElementById('updateCoords').textContent = loc.lat.toFixed(5) + ', ' + loc.lng.toFixed(5);
       document.getElementById('updateTime').textContent   = t.toLocaleTimeString('th-TH');
     }
-    if (customerPos) {
+    if (customerPos && !mapFitDone) {
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(pos); bounds.extend(customerPos);
       map.fitBounds(bounds, {top:30,right:30,bottom:30,left:30});
+      mapFitDone = true;
     }
     calcRoute();
   }
