@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1117">
+<title>แอปคนขับ · POD Track Delivery</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:rgba(255,255,255,0.07);
+    --accent:#4f8ef7; --accent2:#7c6cf7; --green:#34d399; --orange:#fb923c; --red:#f87171;
+    --text:#f1f5f9; --muted:#64748b; --muted2:#94a3b8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
+    display:flex;flex-direction:column;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
+
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;
+    display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+  .header-logo{width:36px;height:36px;border-radius:10px;background:#fff;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;padding:3px;}
+  .header-logo img{width:100%;height:100%;object-fit:contain;}
+  .header-title{font-size:15px;font-weight:800;}
+  .header-sub{font-size:11px;color:var(--muted);}
+  .conn-pill{margin-left:auto;display:flex;align-items:center;gap:5px;border-radius:20px;padding:4px 10px;
+    font-size:11px;font-weight:700;border:1px solid var(--border);}
+  .conn-pill.on{background:rgba(52,211,153,0.12);border-color:rgba(52,211,153,0.25);color:var(--green);}
+  .conn-pill.off{background:rgba(248,113,113,0.12);border-color:rgba(248,113,113,0.25);color:var(--red);}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .install-banner{display:none;background:rgba(79,142,247,0.12);border-bottom:1px solid var(--border);
+    padding:10px 16px;font-size:12px;color:var(--accent);align-items:center;gap:10px;}
+  .install-banner.show{display:flex;}
+  .install-banner button{margin-left:auto;background:var(--accent);color:#fff;border:none;border-radius:8px;
+    padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+
+  .content{flex:1;padding:18px 16px;display:flex;flex-direction:column;gap:16px;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;}
+  .field-label{font-size:12px;font-weight:700;color:var(--muted2);margin-bottom:6px;display:block;}
+  .field-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+    padding:12px 14px;font-size:15px;color:var(--text);font-family:inherit;}
+  .btn{width:100%;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;margin-top:12px;}
+  .btn-stop{background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);color:var(--red);}
+  .btn-status{background:var(--surface2);border:1px solid var(--border);color:var(--text);}
+  .btn-status.active{background:rgba(79,142,247,0.15);border-color:var(--accent);color:var(--accent);}
+
+  .tracking-badge{display:flex;align-items:center;gap:10px;justify-content:center;padding:20px 0;}
+  .tracking-badge .pulse-ring{width:14px;height:14px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 0 rgba(52,211,153,0.6);animation:ring 1.6s infinite;}
+  @keyframes ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,0.5)}70%{box-shadow:0 0 0 14px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+  .tracking-text{font-size:15px;font-weight:800;color:var(--green);}
+
+  .stat-row{display:flex;gap:10px;}
+  .stat{flex:1;background:var(--surface2);border-radius:10px;padding:10px;text-align:center;}
+  .stat-val{font-size:16px;font-weight:800;}
+  .stat-lbl{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+  .status-grid .btn-status{padding:14px 8px;font-size:13px;flex-direction:column;gap:4px;}
+  .status-grid .btn-status .ic{font-size:20px;}
+
+  .footer-note{text-align:center;font-size:11px;color:var(--muted);padding:10px 16px 18px;line-height:1.6;}
+  .warn{background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.25);color:var(--orange);
+    border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;display:none;}
+  .warn.show{display:block;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo"><img src="icon-192.png" alt="POD Track Delivery"></div>
+  <div>
+    <div class="header-title">POD Track · แอปคนขับ</div>
+    <div class="header-sub" id="driverIdLabel">ยังไม่ได้เข้าสู่ระบบ</div>
+  </div>
+  <div class="conn-pill off" id="connPill"><span class="dot"></span><span id="connText">ออฟไลน์</span></div>
+</div>
+
+<div class="install-banner" id="installBanner">
+  <span>📲 ติดตั้งแอปนี้ลงเครื่องเพื่อใช้งานได้ลื่นขึ้น</span>
+  <button id="btnInstall">ติดตั้ง</button>
+</div>
+
+<div class="content">
+
+  <div class="warn" id="iosWarn">
+    ⚠️ บน iPhone (Safari) การส่งพิกัดพื้นหลังจะหยุดทำงานหากสลับแอปหรือปิดหน้าจอนานเกินไป
+    แนะนำให้เปิดแอปนี้ค้างไว้ระหว่างขับ หรือใช้ Android เพื่อการติดตามต่อเนื่องที่แม่นยำกว่า
+  </div>
+
+  <!-- Login -->
+  <div class="card" id="loginCard">
+    <label class="field-label">รหัสออเดอร์ / เลขที่งาน</label>
+    <input class="field-input" id="orderIdInput" placeholder="เช่น TMT20260811001" autocapitalize="characters">
+    <label class="field-label" style="margin-top:12px;">ทะเบียนรถ</label>
+    <input class="field-input" id="plateInput" placeholder="เช่น 1กข-1234">
+    <button class="btn btn-primary" id="btnStart">▶️ เริ่มงานและส่งพิกัด</button>
+  </div>
+
+  <!-- Tracking (hidden until started) -->
+  <div class="card" id="trackCard" style="display:none;">
+    <div class="tracking-badge">
+      <div class="pulse-ring"></div>
+      <div class="tracking-text">กำลังส่งพิกัดสด</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-val" id="statLat">—</div><div class="stat-lbl">Lat</div></div>
+      <div class="stat"><div class="stat-val" id="statLng">—</div><div class="stat-lbl">Lng</div></div>
+      <div class="stat"><div class="stat-val" id="statTime">—</div><div class="stat-lbl">อัพเดตล่าสุด</div></div>
+    </div>
+
+    <label class="field-label" style="margin-top:16px;">อัปเดตสถานะงาน</label>
+    <div class="status-grid">
+      <button class="btn-status" data-status="delivering"><span class="ic">🚚</span>กำลังจัดส่ง</button>
+      <button class="btn-status" data-status="nearby"><span class="ic">📍</span>ใกล้ถึงแล้ว</button>
+      <button class="btn-status" data-status="arrived"><span class="ic">✅</span>ถึงแล้ว / ส่งสำเร็จ</button>
+      <button class="btn-status" data-status="cancelled"><span class="ic">🚫</span>ยกเลิกงาน</button>
+    </div>
+
+    <button class="btn btn-stop" id="btnStop" style="margin-top:16px;">⏹ หยุดส่งพิกัด / จบงาน</button>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  📡 พิกัดจะถูกส่งขึ้น Firebase Realtime ทุก ~5 วินาที ขณะเปิดแอปนี้ค้างไว้ (แม้สลับหน้าจอบน Android)<br>
+  ต้องอนุญาต Location = "Always/While using" และปิด Battery Optimization ของแอปนี้เพื่อผลลัพธ์ดีที่สุด
+</div>
+
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyBwNfPT-jBpz8p6iNNM6_l6yHnsw4xPGpo",
+    authDomain: "statustracking-mockup.firebaseapp.com",
+    databaseURL: "https://statustracking-mockup-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "statustracking-mockup",
+    storageBucket: "statustracking-mockup.firebasestorage.app",
+    messagingSenderId: "423417745590",
+    appId: "1:423417745590:web:2a90c40b718fce6d61d617"
+  });
+  const db = firebase.database();
+
+  let orderId = null, watchId = null, wakeLock = null;
+  let lastSend = 0;
+  const SEND_INTERVAL = 5000;
+
+  // --- iOS warning ---
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod/.test(ua)) document.getElementById('iosWarn').classList.add('show');
+
+  // --- Online/offline pill ---
+  function updateConnPill(){
+    const pill = document.getElementById('connPill');
+    const txt  = document.getElementById('connText');
+    if (navigator.onLine){ pill.className='conn-pill on'; txt.textContent='ออนไลน์'; }
+    else { pill.className='conn-pill off'; txt.textContent='ออฟไลน์'; }
+  }
+  window.addEventListener('online', updateConnPill);
+  window.addEventListener('offline', updateConnPill);
+  updateConnPill();
+
+  // --- Wake Lock: keep screen on while tracking ---
+  async function requestWakeLock(){
+    try{
+      if ('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', ()=>{});
+      }
+    }catch(e){ console.warn('WakeLock failed', e); }
+  }
+  document.addEventListener('visibilitychange', async ()=>{
+    if (wakeLock !== null && document.visibilityState === 'visible' && watchId !== null){
+      await requestWakeLock();
+    }
+  });
+
+  // --- Session persistence (auto-resume) ---
+  const SESSION_KEY = 'tmt_driver_session';
+  function saveSession(oid, plate, status){
+    localStorage.setItem(SESSION_KEY, JSON.stringify({orderId: oid, plate: plate || '', status: status, savedAt: Date.now()}));
+  }
+  function loadSession(){
+    try{ return JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ return null; }
+  }
+  function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+  // --- Start tracking (shared by manual start + auto-resume) ---
+  function startTracking(oid, plate, status){
+    if (!('geolocation' in navigator)){ alert('อุปกรณ์นี้ไม่รองรับ GPS'); return; }
+
+    orderId = oid;
+    const st = status || 'delivering';
+    document.getElementById('driverIdLabel').textContent = plate ? `ทะเบียน ${plate} · ${oid}` : oid;
+    if (plate) db.ref('orders/' + orderId + '/driver/plate').set(plate);
+    db.ref('orders/' + orderId + '/status').set(st);
+    saveSession(oid, plate, st);
+
+    navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {enableHighAccuracy:true});
+
+    watchId = navigator.geolocation.watchPosition(onPosition, onPosError, {
+      enableHighAccuracy: true, maximumAge: 3000, timeout: 15000
+    });
+
+    requestWakeLock();
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('trackCard').style.display = 'block';
+    setActiveStatus(st);
+  }
+
+  document.getElementById('btnStart').addEventListener('click', () => {
+    const oid = document.getElementById('orderIdInput').value.trim();
+    const plate = document.getElementById('plateInput').value.trim();
+    if (!oid){ alert('กรุณากรอกรหัสออเดอร์'); return; }
+    startTracking(oid, plate, 'delivering');
+  });
+
+  // --- Auto-resume on load if a job was in progress ---
+  window.addEventListener('load', () => {
+    const s = loadSession();
+    if (s && s.orderId && s.status !== 'arrived' && s.status !== 'cancelled'){
+      document.getElementById('orderIdInput').value = s.orderId;
+      document.getElementById('plateInput').value = s.plate || '';
+      startTracking(s.orderId, s.plate, s.status);
+    }
+  });
+
+  function onPosition(pos){
+    const now = Date.now();
+    const {latitude, longitude, heading} = pos.coords;
+    document.getElementById('statLat').textContent = latitude.toFixed(5);
+    document.getElementById('statLng').textContent = longitude.toFixed(5);
+    document.getElementById('statTime').textContent = new Date(now).toLocaleTimeString('th-TH');
+    if (now - lastSend < SEND_INTERVAL) return;
+    lastSend = now;
+    if (!orderId) return;
+    db.ref('orders/' + orderId + '/location').set({
+      lat: latitude, lng: longitude,
+      heading: (heading == null || isNaN(heading)) ? null : heading,
+      timestamp: now
+    });
+  }
+
+  function onPosError(err){ console.warn('geo error', err); }
+
+  // --- Status buttons ---
+  document.querySelectorAll('.btn-status').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const status = btn.dataset.status;
+      if (!orderId) return;
+      db.ref('orders/' + orderId + '/status').set(status);
+      setActiveStatus(status);
+      const s = loadSession();
+      if (status === 'arrived' || status === 'cancelled'){
+        clearSession();
+        stopTracking();
+      } else {
+        saveSession(orderId, s ? s.plate : '', status);
+      }
+    });
+  });
+  function setActiveStatus(status){
+    document.querySelectorAll('.btn-status').forEach(b => {
+      b.classList.toggle('active', b.dataset.status === status);
+    });
+  }
+
+  // --- Stop tracking ---
+  document.getElementById('btnStop').addEventListener('click', () => { clearSession(); stopTracking(); });
+  function stopTracking(){
+    if (watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    if (wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+    document.getElementById('trackCard').style.display = 'none';
+    document.getElementById('loginCard').style.display = 'block';
+    orderId = null;
+  }
+
+  // --- PWA install prompt ---
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installBanner').classList.add('show');
+  });
+  document.getElementById('btnInstall').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.remove('show');
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('installBanner').classList.remove('show');
+  });
+
+  // --- Register service worker ---
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
+    });
+  }
+</script>
+</body>
+</html>
