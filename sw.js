@@ -1,6 +1,6 @@
 // Bump this version string every time driver-app.html / manifest.json / icons change,
 // otherwise devices that already installed the app keep serving old cached files forever.
-const CACHE = 'pod-driver-v2';
+const CACHE = 'pod-driver-v3';
 const ASSETS = ['./driver-app.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
