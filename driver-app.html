@@ -58,6 +58,20 @@
   .btn-status{background:var(--surface2);border:1px solid var(--border);color:var(--text);}
   .btn-status.active{background:rgba(79,142,247,0.15);border-color:var(--accent);color:var(--accent);}
 
+  .link-btn{width:100%;background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;
+    padding:10px 0 0;cursor:pointer;font-family:inherit;text-align:center;}
+  .search-msg{font-size:12px;color:var(--muted2);margin-top:10px;text-align:center;line-height:1.5;min-height:0;}
+  .search-msg.err{color:var(--red);}
+
+  .order-item{background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+    padding:14px;margin-top:10px;cursor:pointer;transition:border-color .15s;}
+  .order-item:active{border-color:var(--accent);}
+  .order-item-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .order-item-id{font-size:13px;font-weight:800;}
+  .order-item-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;
+    background:rgba(79,142,247,0.12);color:var(--accent);border:1px solid rgba(79,142,247,0.25);white-space:nowrap;}
+  .order-item-sub{font-size:12px;color:var(--muted2);margin-top:6px;}
+
   .tracking-badge{display:flex;align-items:center;gap:10px;justify-content:center;padding:20px 0;}
   .tracking-badge .pulse-ring{width:14px;height:14px;border-radius:50%;background:var(--green);
     box-shadow:0 0 0 0 rgba(52,211,153,0.6);animation:ring 1.6s infinite;}
@@ -102,13 +116,25 @@
     แนะนำให้เปิดแอปนี้ค้างไว้ระหว่างขับ หรือใช้ Android เพื่อการติดตามต่อเนื่องที่แม่นยำกว่า
   </div>
 
-  <!-- Login -->
+  <!-- Login: search by plate -->
   <div class="card" id="loginCard">
-    <label class="field-label">รหัสออเดอร์ / เลขที่งาน</label>
-    <input class="field-input" id="orderIdInput" placeholder="เช่น TMT20260811001" autocapitalize="characters">
-    <label class="field-label" style="margin-top:12px;">ทะเบียนรถ</label>
-    <input class="field-input" id="plateInput" placeholder="เช่น 1กข-1234">
-    <button class="btn btn-primary" id="btnStart">▶️ เริ่มงานและส่งพิกัด</button>
+    <label class="field-label">ทะเบียนรถ</label>
+    <input class="field-input" id="plateInput" placeholder="เช่น 1กข-1234" autocapitalize="characters">
+    <button class="btn btn-primary" id="btnSearch">🔍 ค้นหางานที่มอบหมาย</button>
+    <div class="search-msg" id="searchMsg"></div>
+    <button class="link-btn" id="btnManualToggle" type="button">พิมพ์รหัสออเดอร์เอง</button>
+    <div id="manualBox" style="display:none;">
+      <label class="field-label" style="margin-top:10px;">รหัสออเดอร์ / เลขที่งาน</label>
+      <input class="field-input" id="orderIdInput" placeholder="เช่น TMT20260811001" autocapitalize="characters">
+      <button class="btn btn-primary" id="btnStartManual">▶️ เริ่มงานและส่งพิกัด</button>
+    </div>
+  </div>
+
+  <!-- Order picker: shown when a plate has more than one active job -->
+  <div class="card" id="orderPickerCard" style="display:none;">
+    <label class="field-label" id="orderPickerLabel">เลือกงาน</label>
+    <div id="orderList"></div>
+    <button class="link-btn" id="btnPickerBack" type="button">← ค้นหาใหม่</button>
   </div>
 
   <!-- Tracking (hidden until started) -->
@@ -197,12 +223,13 @@
   }
   function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
-  // --- Start tracking (shared by manual start + auto-resume) ---
+  // --- Start tracking (shared by search-pick, manual start, auto-resume) ---
   function startTracking(oid, plate, status){
     if (!('geolocation' in navigator)){ alert('อุปกรณ์นี้ไม่รองรับ GPS'); return; }
 
     orderId = oid;
-    const st = status || 'delivering';
+    // 'pending' (assigned but not yet started) flips to 'delivering' the moment tracking begins
+    const st = (!status || status === 'pending') ? 'delivering' : status;
     document.getElementById('driverIdLabel').textContent = plate ? `ทะเบียน ${plate} · ${oid}` : oid;
     if (plate) db.ref('orders/' + orderId + '/driver/plate').set(plate);
     db.ref('orders/' + orderId + '/status').set(st);
@@ -216,11 +243,91 @@
 
     requestWakeLock();
     document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('orderPickerCard').style.display = 'none';
     document.getElementById('trackCard').style.display = 'block';
     setActiveStatus(st);
   }
 
-  document.getElementById('btnStart').addEventListener('click', () => {
+  // --- Search by plate: pull orders assigned to this plate ---
+  const STATUS_LABEL = {pending:'รอเริ่มงาน', delivering:'กำลังจัดส่ง', nearby:'ใกล้ถึงแล้ว', arrived:'ถึงแล้ว', cancelled:'ยกเลิก'};
+
+  function searchByPlate(plate){
+    const msg = document.getElementById('searchMsg');
+    const btn = document.getElementById('btnSearch');
+    msg.className = 'search-msg'; msg.textContent = 'กำลังค้นหางาน...';
+    btn.disabled = true;
+
+    db.ref('orders').orderByChild('driver/plate').equalTo(plate).once('value')
+      .then(snap => {
+        btn.disabled = false;
+        const data = snap.val() || {};
+        const entries = Object.entries(data).filter(([id, o]) => o && o.status !== 'arrived' && o.status !== 'cancelled');
+
+        if (entries.length === 0){
+          msg.className = 'search-msg err';
+          msg.textContent = 'ไม่พบงานที่มอบหมายให้ทะเบียนนี้ ลองตรวจสอบเลขทะเบียน หรือกรอกรหัสออเดอร์เอง';
+          return;
+        }
+        msg.textContent = '';
+        if (entries.length === 1){
+          const [id, o] = entries[0];
+          startTracking(id, plate, o.status);
+          return;
+        }
+        renderOrderPicker(entries, plate);
+      })
+      .catch(err => {
+        btn.disabled = false;
+        console.warn('search error', err);
+        msg.className = 'search-msg err';
+        msg.textContent = 'ค้นหาไม่สำเร็จ (เชื่อมต่อไม่ได้) ลองใหม่ หรือกรอกรหัสออเดอร์เอง';
+      });
+  }
+
+  function renderOrderPicker(entries, plate){
+    const list = document.getElementById('orderList');
+    list.innerHTML = '';
+    entries.forEach(([id, o]) => {
+      const stop1 = o.stops && (o.stops[1] || o.stops[Object.keys(o.stops)[0]]);
+      const cust  = stop1 && stop1.customer;
+      const sub   = cust ? (cust.name || cust.address || '') : '';
+      const stopsInfo = o.totalStops > 1 ? ` · ${o.totalStops} จุดส่ง` : '';
+      const div = document.createElement('div');
+      div.className = 'order-item';
+      div.innerHTML = `
+        <div class="order-item-top">
+          <span class="order-item-id">${id}</span>
+          <span class="order-item-badge">${STATUS_LABEL[o.status] || o.status || '—'}</span>
+        </div>
+        <div class="order-item-sub">${sub}${stopsInfo}</div>`;
+      div.addEventListener('click', () => startTracking(id, plate, o.status));
+      list.appendChild(div);
+    });
+    document.getElementById('orderPickerLabel').textContent = `พบ ${entries.length} งานสำหรับทะเบียน ${plate} · เลือกงาน`;
+    document.getElementById('loginCard').style.display = 'none';
+    document.getElementById('orderPickerCard').style.display = 'block';
+  }
+
+  document.getElementById('btnPickerBack').addEventListener('click', () => {
+    document.getElementById('orderPickerCard').style.display = 'none';
+    document.getElementById('loginCard').style.display = 'block';
+  });
+
+  document.getElementById('btnSearch').addEventListener('click', () => {
+    const plate = document.getElementById('plateInput').value.trim();
+    if (!plate){ alert('กรุณากรอกทะเบียนรถ'); return; }
+    searchByPlate(plate);
+  });
+  document.getElementById('plateInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btnSearch').click();
+  });
+
+  // --- Manual order-id fallback ---
+  document.getElementById('btnManualToggle').addEventListener('click', () => {
+    const box = document.getElementById('manualBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('btnStartManual').addEventListener('click', () => {
     const oid = document.getElementById('orderIdInput').value.trim();
     const plate = document.getElementById('plateInput').value.trim();
     if (!oid){ alert('กรุณากรอกรหัสออเดอร์'); return; }
@@ -231,7 +338,6 @@
   window.addEventListener('load', () => {
     const s = loadSession();
     if (s && s.orderId && s.status !== 'arrived' && s.status !== 'cancelled'){
-      document.getElementById('orderIdInput').value = s.orderId;
       document.getElementById('plateInput').value = s.plate || '';
       startTracking(s.orderId, s.plate, s.status);
     }
