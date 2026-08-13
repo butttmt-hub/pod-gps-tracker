@@ -1,4 +1,6 @@
-const CACHE = 'tmt-driver-v1';
+// Bump this version string every time driver-app.html / manifest.json / icons change,
+// otherwise devices that already installed the app keep serving old cached files forever.
+const CACHE = 'pod-driver-v2';
 const ASSETS = ['./driver-app.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -13,11 +15,18 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// App-shell only: let all Firebase/API calls go straight to network
+// App-shell: network-first so updates (new icon, new manifest, new code) show up
+// immediately on next load, falling back to cache only when offline.
 self.addEventListener('fetch', (e) => {
   const url = e.request.url;
   if (url.includes('firebaseio.com') || url.includes('googleapis.com')) return;
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
