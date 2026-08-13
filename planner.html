@@ -302,6 +302,14 @@
     }
     .create-input:focus { border-color: rgba(79,142,247,0.5); }
     .create-input::placeholder { color: var(--muted); }
+    .dest-input-big { font-size: 15px; padding: 12px 14px; min-height: 46px; }
+    .dest-preview {
+      margin-top: 8px; background: rgba(79,142,247,0.08); border: 1.5px solid rgba(79,142,247,0.25);
+      border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; color: var(--text);
+      white-space: normal; word-break: break-word;
+    }
+    .dest-preview b { color: var(--accent); font-size: 10px; display: block; text-transform: uppercase;
+      letter-spacing: 0.4px; margin-bottom: 4px; font-weight: 800; }
     .seq-row { display: flex; gap: 8px; }
     .seq-btn {
       flex: 1; padding: 9px; border-radius: 10px; border: 1.5px solid var(--border);
@@ -868,7 +876,8 @@
       </div>
       <div id="cDestSearch_${n}">
         <div class="create-label">ที่อยู่ปลายทาง *</div>
-        <input class="create-input" id="cDestInput_${n}" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
+        <input class="create-input dest-input-big" id="cDestInput_${n}" placeholder="ค้นหาที่อยู่..." autocomplete="off" />
+        <div class="dest-preview" id="cDestPreview_${n}" style="display:none"></div>
       </div>
       <div id="cDestCoords_${n}" style="display:none">
         <div class="create-row" style="margin-bottom:6px">
@@ -922,6 +931,16 @@
       document.getElementById(`cDestInput_${n}`).value = d.destInput;
     }
     stopPlaces[n] = d.place;
+    const preview = document.getElementById(`cDestPreview_${n}`);
+    if (preview) {
+      if (d.mode === 'search' && d.place && d.place.geometry) {
+        const full = d.place.formatted_address || d.place.name || '';
+        preview.innerHTML = `<b>ที่อยู่ที่เลือก</b>${full}`;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
   }
 
   function moveStop(n, dir) {
@@ -982,7 +1001,11 @@
       document.getElementById('cDestCoords_'+n).style.flexDirection = 'column';
       document.getElementById('cDestCoords_'+n).style.gap = '6px';
     }
-    if (mode==='search') document.getElementById('cDestInput_'+n).value='';
+    if (mode==='search') {
+      document.getElementById('cDestInput_'+n).value='';
+      const preview = document.getElementById('cDestPreview_'+n);
+      if (preview) preview.style.display = 'none';
+    }
   }
 
   function confirmStopCoords(n) {
@@ -1004,7 +1027,23 @@
       if (!input) return;
       const ac = new google.maps.places.Autocomplete(input,
         {fields:['geometry','name','formatted_address'],componentRestrictions:{country:'th'}});
-      ac.addListener('place_changed', () => { stopPlaces[n] = ac.getPlace(); });
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace();
+        stopPlaces[n] = place;
+        const preview = document.getElementById('cDestPreview_'+n);
+        if (place && place.geometry) {
+          const full = place.formatted_address || place.name || '';
+          preview.innerHTML = `<b>ที่อยู่ที่เลือก</b>${full}`;
+          preview.style.display = 'block';
+        } else if (preview) {
+          preview.style.display = 'none';
+        }
+      });
+      input.addEventListener('input', () => {
+        const preview = document.getElementById('cDestPreview_'+n);
+        if (preview) preview.style.display = 'none';
+        stopPlaces[n] = null;
+      });
       stopAC[n] = ac;
     }, 200);
   }
